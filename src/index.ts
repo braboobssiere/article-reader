@@ -2,9 +2,6 @@ import { Hono } from 'hono';
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 
-// ------------------------------
-// Environment Bindings
-// ------------------------------
 interface Env {
   TURNSTILE_ENABLED?: string;
   TURNSTILE_SITE_KEY?: string;
@@ -25,32 +22,49 @@ interface CachedArticle extends ArticleData {
   fetchedAt: number;
 }
 
-// ------------------------------
-// Cache
-// ------------------------------
 const memoryCache = new Map<string, { data: CachedArticle; expires: number }>();
 const CACHE_TTL_SECONDS = 3600;
 
-// ------------------------------
-// Helpers
-// ------------------------------
 function computeReadingTime(html: string): number {
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const wordCount = text.split(/\s+/).length;
   return Math.ceil((wordCount / 200) * 60);
 }
 
-// --- RELIABLE string-based sanitization ---
 function sanitizeHtml(html: string): string {
-  // 1. Remove entire tags: script, iframe, object, embed
-  let sanitized = html.replace(/<(script|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '');
-  // 2. Remove event handler attributes (on*)
-  sanitized = sanitized.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
-  // 3. Remove javascript: href
-  sanitized = sanitized.replace(/\s+href\s*=\s*["']\s*javascript:[^"']*["']/gi, '');
-  // 4. Remove srcdoc attribute (can contain HTML)
-  sanitized = sanitized.replace(/\s+srcdoc\s*=\s*["'][^"']*["']/gi, '');
+  let sanitized = html
+    .replace(/<(script|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\s+href\s*=\s*["']\s*javascript:[^"']*["']/gi, '')
+    .replace(/\s+srcdoc\s*=\s*["'][^"']*["']/gi, '');
   return sanitized;
+}
+
+// Fallback extraction when Readability fails
+function fallbackExtract(html: string): { title: string; content: string } {
+  const { document } = parseHTML(`<body>${html}</body>`);
+  
+  // Try common article selectors
+  const selectors = ['article', '[role="article"]', '.post-content', '.entry-content', '.article-content', '.content'];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el && el.innerHTML.trim().length > 100) {
+      return {
+        title: document.querySelector('title')?.textContent || 'Untitled',
+        content: el.innerHTML,
+      };
+    }
+  }
+  
+  // Fallback: use body but remove common non-content elements
+  const body = document.body;
+  const toRemove = body.querySelectorAll('nav, header, footer, aside, .sidebar, .advertisement, .ads');
+  toRemove.forEach(el => el.remove());
+  
+  return {
+    title: document.querySelector('title')?.textContent || 'Untitled',
+    content: body.innerHTML,
+  };
 }
 
 function extractImageFromDocument(doc: Document, articleContent?: string | null): string | null {
@@ -77,7 +91,7 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'PrivateArticleReader/1.0 (Cloudflare Worker)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PrivateArticleReader/1.0)' },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -98,27 +112,32 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       document.querySelector('meta[name="publishdate"]')?.getAttribute('content');
     if (dateMeta) published = dateMeta;
 
-    // Extract article with Readability
+    // Try Readability first
     const reader = new Readability(document);
-    const parsed = reader.parse();
-    if (!parsed?.content) throw new Error('Could not extract article content');
+    let parsed = reader.parse();
+    let content = parsed?.content || '';
 
-    // Sanitize the content
-    let sanitisedContent = sanitizeHtml(parsed.content);
-
-    // If sanitization stripped everything, use a simple fallback (remove only scripts/iframes)
-    if (!sanitisedContent || sanitisedContent.trim() === '') {
-      // fallback: remove script and iframe tags only
-      sanitisedContent = parsed.content.replace(/<(script|iframe)[^>]*>[\s\S]*?<\/\1>/gi, '');
+    // If Readability failed, use fallback
+    if (!content || content.trim().length < 50) {
+      const fallback = fallbackExtract(html);
+      content = fallback.content;
+      if (!parsed?.title) {
+        parsed = { title: fallback.title, content: fallback.content, byline: null };
+      }
     }
 
-    const image = extractImageFromDocument(document, parsed.content);
+    if (!content || content.trim().length < 10) {
+      throw new Error('Could not extract article content');
+    }
+
+    const image = extractImageFromDocument(document, parsed?.content || content);
+    const sanitisedContent = sanitizeHtml(content);
     const ttr = computeReadingTime(sanitisedContent);
 
     return {
-      title: parsed.title || 'Untitled',
-      content: sanitisedContent,
-      author: author || parsed.byline || null,
+      title: parsed?.title || 'Untitled',
+      content: sanitisedContent || content,
+      author: author || parsed?.byline || null,
       published: published || null,
       image,
       ttr,
