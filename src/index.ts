@@ -40,53 +40,17 @@ function computeReadingTime(html: string): number {
   return Math.ceil((wordCount / 200) * 60);
 }
 
-// --- FIXED: no live NodeList iteration ---
+// --- RELIABLE string-based sanitization ---
 function sanitizeHtml(html: string): string {
-  const { document } = parseHTML(`<body>${html}</body>`);
-
-  function cleanNode(node: ChildNode) {
-    if (node.nodeType === 1) {
-      const el = node as Element;
-      const tag = el.tagName.toLowerCase();
-
-      // Remove unsafe tags
-      if (['script', 'iframe', 'object', 'embed'].includes(tag)) {
-        el.remove();
-        return;
-      }
-
-      // Remove dangerous attributes
-      for (const attr of el.attributes) {
-        const name = attr.name;
-        const value = attr.value.trim().toLowerCase();
-        if (
-          name.startsWith('on') ||
-          (name === 'href' && value.startsWith('javascript:')) ||
-          name === 'srcdoc'
-        ) {
-          el.removeAttribute(name);
-        }
-      }
-
-      // Recurse into children using a static array copy
-      for (const child of Array.from(el.childNodes)) {
-        cleanNode(child);
-      }
-    }
-  }
-
-  // Process top-level children using a static array copy
-  for (const child of Array.from(document.body.childNodes)) {
-    cleanNode(child);
-  }
-
-  return document.body.innerHTML;
-}
-
-// If sanitization results in empty content, fallback to a safe version of original.
-function safeFallbackContent(originalHtml: string): string {
-  // Remove only scripts and iframes, keep everything else (no attribute sanitization)
-  return originalHtml.replace(/<(script|iframe)[^>]*>.*?<\/\1>/gis, '');
+  // 1. Remove entire tags: script, iframe, object, embed
+  let sanitized = html.replace(/<(script|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '');
+  // 2. Remove event handler attributes (on*)
+  sanitized = sanitized.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
+  // 3. Remove javascript: href
+  sanitized = sanitized.replace(/\s+href\s*=\s*["']\s*javascript:[^"']*["']/gi, '');
+  // 4. Remove srcdoc attribute (can contain HTML)
+  sanitized = sanitized.replace(/\s+srcdoc\s*=\s*["'][^"']*["']/gi, '');
+  return sanitized;
 }
 
 function extractImageFromDocument(doc: Document, articleContent?: string | null): string | null {
@@ -122,6 +86,7 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
     const html = await response.text();
     const { document } = parseHTML(html);
 
+    // Extract metadata
     let author: string | null = null;
     let published: string | null = null;
 
@@ -133,18 +98,21 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       document.querySelector('meta[name="publishdate"]')?.getAttribute('content');
     if (dateMeta) published = dateMeta;
 
+    // Extract article with Readability
     const reader = new Readability(document);
     const parsed = reader.parse();
     if (!parsed?.content) throw new Error('Could not extract article content');
 
-    const image = extractImageFromDocument(document, parsed.content);
+    // Sanitize the content
     let sanitisedContent = sanitizeHtml(parsed.content);
 
-    // If sanitisation stripped everything, use a less aggressive fallback
+    // If sanitization stripped everything, use a simple fallback (remove only scripts/iframes)
     if (!sanitisedContent || sanitisedContent.trim() === '') {
-      sanitisedContent = safeFallbackContent(parsed.content);
+      // fallback: remove script and iframe tags only
+      sanitisedContent = parsed.content.replace(/<(script|iframe)[^>]*>[\s\S]*?<\/\1>/gi, '');
     }
 
+    const image = extractImageFromDocument(document, parsed.content);
     const ttr = computeReadingTime(sanitisedContent);
 
     return {
@@ -314,6 +282,9 @@ app.get('/', (c) => {
       const imageHtml = article.image && !article.content.includes(article.image)
         ? \`<img src="\${article.image}" alt="\${article.title}" class="w-full mx-auto my-5 rounded shadow" />\`
         : '';
+
+      // log content length for debugging
+      console.log('Content length:', article.content.length);
 
       resultArea.innerHTML = \`
         <div class="bg-white rounded-lg shadow p-6">
