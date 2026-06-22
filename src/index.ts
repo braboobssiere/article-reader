@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 
+// ------------------------------
+// Environment Bindings
+// ------------------------------
 interface Env {
   TURNSTILE_ENABLED?: string;
   TURNSTILE_SITE_KEY?: string;
@@ -22,9 +25,15 @@ interface CachedArticle extends ArticleData {
   fetchedAt: number;
 }
 
+// ------------------------------
+// Cache
+// ------------------------------
 const memoryCache = new Map<string, { data: CachedArticle; expires: number }>();
 const CACHE_TTL_SECONDS = 3600;
 
+// ------------------------------
+// Helpers
+// ------------------------------
 function computeReadingTime(html: string): number {
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const wordCount = text.split(/\s+/).length;
@@ -40,31 +49,32 @@ function sanitizeHtml(html: string): string {
   return sanitized;
 }
 
-// Fallback extraction when Readability fails
 function fallbackExtract(html: string): { title: string; content: string } {
   const { document } = parseHTML(`<body>${html}</body>`);
-  
-  // Try common article selectors
-  const selectors = ['article', '[role="article"]', '.post-content', '.entry-content', '.article-content', '.content'];
+  const selectors = [
+    'article',
+    '[role="article"]',
+    '.post-content',
+    '.entry-content',
+    '.article-content',
+    '.content',
+    '.main-content',
+    '#content',
+    '.post',
+    '.blog-post'
+  ];
   for (const sel of selectors) {
     const el = document.querySelector(sel);
     if (el && el.innerHTML.trim().length > 100) {
-      return {
-        title: document.querySelector('title')?.textContent || 'Untitled',
-        content: el.innerHTML,
-      };
+      const title = document.querySelector('title')?.textContent || 'Untitled';
+      return { title, content: el.innerHTML };
     }
   }
-  
-  // Fallback: use body but remove common non-content elements
   const body = document.body;
-  const toRemove = body.querySelectorAll('nav, header, footer, aside, .sidebar, .advertisement, .ads');
+  const toRemove = body.querySelectorAll('nav, header, footer, aside, .sidebar, .advertisement, .ads, .popup, .modal');
   toRemove.forEach(el => el.remove());
-  
-  return {
-    title: document.querySelector('title')?.textContent || 'Untitled',
-    content: body.innerHTML,
-  };
+  const title = document.querySelector('title')?.textContent || 'Untitled';
+  return { title, content: body.innerHTML };
 }
 
 function extractImageFromDocument(doc: Document, articleContent?: string | null): string | null {
@@ -100,7 +110,6 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
     const html = await response.text();
     const { document } = parseHTML(html);
 
-    // Extract metadata
     let author: string | null = null;
     let published: string | null = null;
 
@@ -112,12 +121,10 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       document.querySelector('meta[name="publishdate"]')?.getAttribute('content');
     if (dateMeta) published = dateMeta;
 
-    // Try Readability first
     const reader = new Readability(document);
     let parsed = reader.parse();
     let content = parsed?.content || '';
 
-    // If Readability failed, use fallback
     if (!content || content.trim().length < 50) {
       const fallback = fallbackExtract(html);
       content = fallback.content;
@@ -194,10 +201,76 @@ async function verifyTurnstile(token: string, ip: string, secretKey: string): Pr
 }
 
 // ------------------------------
+// HTML rendering helpers
+// ------------------------------
+function renderArticlePage(article: ArticleData, sourceUrl: string): string {
+  const readingTime = Math.round(article.ttr / 60);
+  const publishedDate = article.published ? new Date(article.published).toLocaleDateString() : 'Publishing time not found';
+  const author = article.author || 'No author found';
+  const imageHtml = article.image && !article.content.includes(article.image)
+    ? `<img src="${article.image}" alt="${article.title}" class="w-full mx-auto my-5 rounded shadow" />`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(article.title)} – Private Article Reader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .prose { max-width: 65ch; margin: 0 auto; line-height: 1.8; }
+    .prose p { margin-bottom: 1.2em; }
+    .prose img { margin: 2em auto; border-radius: 0.5rem; }
+    .prose h2, .prose h3 { font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="max-w-5xl mx-auto px-4 font-sans">
+    <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
+      <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
+      <div class="flex gap-6">
+        <a href="/#how-it-works" class="hover:underline">How it works ?</a>
+        <a href="https://github.com/yourusername/private-article-reader" target="_blank" class="hover:underline">Source</a>
+      </div>
+    </nav>
+    <main class="my-8">
+      <div class="bg-white rounded-lg shadow p-6">
+        <a href="${escapeHtml(sourceUrl)}" target="_blank" class="flex items-center justify-center gap-2 bg-yellow-500 text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
+        <h1 class="text-2xl md:text-3xl font-bold text-center my-4">${escapeHtml(article.title)}</h1>
+        ${imageHtml}
+        <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-600 mt-4 mb-8">
+          <div class="flex items-center gap-1">👤 ${escapeHtml(author)}</div>
+          <div class="flex items-center gap-1">📅 ${escapeHtml(publishedDate)}</div>
+          <div class="flex items-center gap-1">⏱️ ${readingTime} min read</div>
+        </div>
+        <div class="prose max-w-6xl mx-auto my-0 leading-relaxed">${article.content}</div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>`;
+}
+
+function escapeHtml(str: string): string {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
+}
+
+// ------------------------------
 // Hono app
 // ------------------------------
 const app = new Hono<{ Bindings: Env }>();
 
+// Favicon
+app.get('/favicon.ico', (c) => {
+  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  return new Response(gif, {
+    headers: { 'Content-Type': 'image/gif', 'Cache-Control': 'public, max-age=86400' },
+  });
+});
+
+// Homepage with form
 app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   const siteKey = c.env.TURNSTILE_SITE_KEY;
@@ -302,9 +375,6 @@ app.get('/', (c) => {
         ? \`<img src="\${article.image}" alt="\${article.title}" class="w-full mx-auto my-5 rounded shadow" />\`
         : '';
 
-      // log content length for debugging
-      console.log('Content length:', article.content.length);
-
       resultArea.innerHTML = \`
         <div class="bg-white rounded-lg shadow p-6">
           <a href="\${urlInput.value}" target="_blank" class="flex items-center justify-center gap-2 bg-yellow-500 text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
@@ -331,6 +401,41 @@ app.get('/', (c) => {
   return c.html(html);
 });
 
+// Direct article view with URL parameter
+app.get('/article', async (c) => {
+  const urlParam = c.req.query('url');
+  if (!urlParam) {
+    return c.redirect('/');
+  }
+
+  let validUrl: string;
+  try {
+    const u = new URL(urlParam);
+    if (!u.protocol.startsWith('http')) throw new Error();
+    validUrl = u.href;
+  } catch {
+    return c.text('Invalid URL. Please provide a valid http:// or https:// address', 400);
+  }
+
+  // Check cache
+  const cached = await getCachedArticle(validUrl, c.env);
+  if (cached) {
+    const { fetchedAt, ...data } = cached;
+    return c.html(renderArticlePage(data, validUrl));
+  }
+
+  try {
+    const article = await fetchAndParseArticle(validUrl, c.env);
+    await setCachedArticle(validUrl, article, c.env);
+    return c.html(renderArticlePage(article, validUrl));
+  } catch (err) {
+    console.error(err);
+    const message = err instanceof Error ? err.message : 'Extraction failed';
+    return c.text(`Error: ${message}`, 500);
+  }
+});
+
+// API endpoint (for client-side form submission)
 app.post('/api/extract', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body || !body.url) return c.text('Missing "url" field', 400);
