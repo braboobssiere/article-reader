@@ -6,7 +6,7 @@ import { parseHTML } from 'linkedom';
 // Environment Bindings
 // ------------------------------
 interface Env {
-  TURNSTILE_ENABLED?: string;
+  TURNSTILE_ENABLED?: string;    // "true" to enable Turnstile on the homepage form
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
   ARTICLE_CACHE?: KVNamespace;
@@ -270,7 +270,7 @@ app.get('/favicon.ico', (c) => {
   });
 });
 
-// Homepage with form
+// Homepage with form (GET to /article)
 app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   const siteKey = c.env.TURNSTILE_SITE_KEY;
@@ -286,10 +286,6 @@ app.get('/', (c) => {
   <title>Private Article Reader</title>
   <script src="https://cdn.tailwindcss.com"></script>
   ${turnstileEnabled ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''}
-  <style>
-    .loader { display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #000; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  </style>
 </head>
 <body class="bg-gray-100">
   <div class="max-w-5xl mx-auto px-4 font-sans">
@@ -302,10 +298,10 @@ app.get('/', (c) => {
     </nav>
     <main class="my-8">
       <div class="bg-white rounded-lg shadow p-6 mb-8">
-        <form id="article-form" class="flex flex-col gap-4">
-          <input type="url" id="url-input" required placeholder="Enter article URL (e.g. https://example.com/news)" class="border-2 rounded px-3 py-2 outline-none focus:border-gray-400">
+        <form action="/article" method="GET" class="flex flex-col gap-4">
+          <input type="url" name="url" required placeholder="Enter article URL (e.g. https://example.com/news)" class="border-2 rounded px-3 py-2 outline-none focus:border-gray-400">
           ${turnstileEnabled ? `<div class="cf-turnstile" data-sitekey="${siteKey}" data-theme="light"></div>` : ''}
-          <button type="submit" id="submit-btn" class="bg-black text-white py-2 rounded hover:bg-gray-800 transition">Load Article</button>
+          <button type="submit" class="bg-black text-white py-2 rounded hover:bg-gray-800 transition">Load Article</button>
         </form>
       </div>
       <div id="how-it-works" class="bg-white rounded-lg shadow p-6">
@@ -316,86 +312,8 @@ app.get('/', (c) => {
           <div class="flex items-center gap-2"><span class="bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span> <span>We display it in an easy‑to‑read format.</span></div>
         </div>
       </div>
-      <div id="result-area" class="mt-8 hidden"></div>
     </main>
   </div>
-  <script>
-    const form = document.getElementById('article-form');
-    const urlInput = document.getElementById('url-input');
-    const submitBtn = document.getElementById('submit-btn');
-    const resultArea = document.getElementById('result-area');
-    const turnstileEnabled = ${turnstileEnabled};
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const url = urlInput.value.trim();
-      if (!url) return;
-
-      let turnstileToken = null;
-      if (turnstileEnabled) {
-        turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
-        if (!turnstileToken) {
-          alert('Please complete the CAPTCHA.');
-          return;
-        }
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Loading ...';
-      resultArea.innerHTML = '<div class="flex justify-center items-center py-12"><div class="loader"></div><span class="ml-2">Fetching article...</span></div>';
-      resultArea.classList.remove('hidden');
-
-      try {
-        const res = await fetch('/api/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, turnstileToken })
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText || 'Failed to load article');
-        }
-        const article = await res.json();
-        renderArticle(article);
-        if (turnstileEnabled) turnstile.reset();
-      } catch (err) {
-        resultArea.innerHTML = \`<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">⚠️ \${err.message}</div>\`;
-        if (turnstileEnabled) turnstile.reset();
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Load Article';
-      }
-    });
-
-    function renderArticle(article) {
-      const readingTime = Math.round(article.ttr / 60);
-      const publishedDate = article.published ? new Date(article.published).toLocaleDateString() : 'Publishing time not found';
-      const author = article.author || 'No author found';
-      const imageHtml = article.image && !article.content.includes(article.image)
-        ? \`<img src="\${article.image}" alt="\${article.title}" class="w-full mx-auto my-5 rounded shadow" />\`
-        : '';
-
-      resultArea.innerHTML = \`
-        <div class="bg-white rounded-lg shadow p-6">
-          <a href="\${urlInput.value}" target="_blank" class="flex items-center justify-center gap-2 bg-yellow-500 text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
-          <h1 class="text-2xl md:text-3xl font-bold text-center my-4">\${escapeHtml(article.title)}</h1>
-          \${imageHtml}
-          <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-600 mt-4 mb-8">
-            <div class="flex items-center gap-1">👤 \${escapeHtml(author)}</div>
-            <div class="flex items-center gap-1">📅 \${escapeHtml(publishedDate)}</div>
-            <div class="flex items-center gap-1">⏱️ \${readingTime} min read</div>
-          </div>
-          <div class="prose max-w-6xl mx-auto my-0 leading-relaxed">\${article.content}</div>
-        </div>
-      \`;
-      resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
-    }
-  </script>
 </body>
 </html>`;
   return c.html(html);
@@ -435,7 +353,7 @@ app.get('/article', async (c) => {
   }
 });
 
-// API endpoint (for client-side form submission)
+// API endpoint (kept for potential client-side use, but not used by the homepage)
 app.post('/api/extract', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body || !body.url) return c.text('Missing "url" field', 400);
