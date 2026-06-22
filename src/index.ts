@@ -6,7 +6,7 @@ import { parseHTML } from 'linkedom';
 // Environment Bindings
 // ------------------------------
 interface Env {
-  TURNSTILE_ENABLED?: string;    // "true" to enable
+  TURNSTILE_ENABLED?: string;
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
   ARTICLE_CACHE: KVNamespace;
@@ -26,7 +26,7 @@ interface CachedArticle extends ArticleData {
 }
 
 // ------------------------------
-// Cache (memory + optional KV)
+// Cache
 // ------------------------------
 const memoryCache = new Map<string, { data: CachedArticle; expires: number }>();
 const CACHE_TTL_SECONDS = 3600;
@@ -40,42 +40,53 @@ function computeReadingTime(html: string): number {
   return Math.ceil((wordCount / 200) * 60);
 }
 
-// --- FIXED: no NodeFilter ---
+// --- FIXED: no live NodeList iteration ---
 function sanitizeHtml(html: string): string {
   const { document } = parseHTML(`<body>${html}</body>`);
-  
+
   function cleanNode(node: ChildNode) {
-    if (node.nodeType === 1) { // ELEMENT_NODE
+    if (node.nodeType === 1) {
       const el = node as Element;
       const tag = el.tagName.toLowerCase();
+
       // Remove unsafe tags
       if (['script', 'iframe', 'object', 'embed'].includes(tag)) {
         el.remove();
         return;
       }
-      // Clean attributes
+
+      // Remove dangerous attributes
       for (const attr of el.attributes) {
         const name = attr.name;
         const value = attr.value.trim().toLowerCase();
-        if (name.startsWith('on') ||
-            (name === 'href' && value.startsWith('javascript:')) ||
-            name === 'srcdoc') {
+        if (
+          name.startsWith('on') ||
+          (name === 'href' && value.startsWith('javascript:')) ||
+          name === 'srcdoc'
+        ) {
           el.removeAttribute(name);
         }
       }
-      // Recursively clean children
-      for (const child of el.childNodes) {
+
+      // Recurse into children using a static array copy
+      for (const child of Array.from(el.childNodes)) {
         cleanNode(child);
       }
     }
   }
-  
-  // Process all top-level children of <body>
-  for (const child of document.body.childNodes) {
+
+  // Process top-level children using a static array copy
+  for (const child of Array.from(document.body.childNodes)) {
     cleanNode(child);
   }
-  
+
   return document.body.innerHTML;
+}
+
+// If sanitization results in empty content, fallback to a safe version of original.
+function safeFallbackContent(originalHtml: string): string {
+  // Remove only scripts and iframes, keep everything else (no attribute sanitization)
+  return originalHtml.replace(/<(script|iframe)[^>]*>.*?<\/\1>/gis, '');
 }
 
 function extractImageFromDocument(doc: Document, articleContent?: string | null): string | null {
@@ -127,7 +138,13 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
     if (!parsed?.content) throw new Error('Could not extract article content');
 
     const image = extractImageFromDocument(document, parsed.content);
-    const sanitisedContent = sanitizeHtml(parsed.content);
+    let sanitisedContent = sanitizeHtml(parsed.content);
+
+    // If sanitisation stripped everything, use a less aggressive fallback
+    if (!sanitisedContent || sanitisedContent.trim() === '') {
+      sanitisedContent = safeFallbackContent(parsed.content);
+    }
+
     const ttr = computeReadingTime(sanitisedContent);
 
     return {
