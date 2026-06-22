@@ -40,33 +40,41 @@ function computeReadingTime(html: string): number {
   return Math.ceil((wordCount / 200) * 60);
 }
 
+// --- FIXED: no NodeFilter ---
 function sanitizeHtml(html: string): string {
   const { document } = parseHTML(`<body>${html}</body>`);
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_ELEMENT,
-    {
-      acceptNode: (node) => {
-        const tag = node.tagName?.toLowerCase();
-        if (['script', 'iframe', 'object', 'embed'].includes(tag)) {
-          return NodeFilter.FILTER_REJECT;
+  
+  function cleanNode(node: ChildNode) {
+    if (node.nodeType === 1) { // ELEMENT_NODE
+      const el = node as Element;
+      const tag = el.tagName.toLowerCase();
+      // Remove unsafe tags
+      if (['script', 'iframe', 'object', 'embed'].includes(tag)) {
+        el.remove();
+        return;
+      }
+      // Clean attributes
+      for (const attr of el.attributes) {
+        const name = attr.name;
+        const value = attr.value.trim().toLowerCase();
+        if (name.startsWith('on') ||
+            (name === 'href' && value.startsWith('javascript:')) ||
+            name === 'srcdoc') {
+          el.removeAttribute(name);
         }
-        return NodeFilter.FILTER_ACCEPT;
-      },
-    }
-  );
-
-  const nodesToRemove: Element[] = [];
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Element;
-    for (const attr of node.attributes) {
-      if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:'))) {
-        node.removeAttribute(attr.name);
+      }
+      // Recursively clean children
+      for (const child of el.childNodes) {
+        cleanNode(child);
       }
     }
-    if (node.hasAttribute('srcdoc')) node.removeAttribute('srcdoc');
   }
-  for (const node of nodesToRemove) node.remove();
+  
+  // Process all top-level children of <body>
+  for (const child of document.body.childNodes) {
+    cleanNode(child);
+  }
+  
   return document.body.innerHTML;
 }
 
@@ -166,7 +174,7 @@ async function setCachedArticle(url: string, data: ArticleData, env: Env): Promi
 }
 
 // ------------------------------
-// Turnstile verification (only if enabled)
+// Turnstile verification (optional)
 // ------------------------------
 async function verifyTurnstile(token: string, ip: string, secretKey: string): Promise<boolean> {
   const formData = new FormData();
