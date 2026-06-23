@@ -41,12 +41,11 @@ function computeReadingTime(html: string): number {
 }
 
 function sanitizeHtml(html: string): string {
-  let sanitized = html
+  return html
     .replace(/<(script|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '')
     .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '')
     .replace(/\s+href\s*=\s*["']\s*javascript:[^"']*["']/gi, '')
     .replace(/\s+srcdoc\s*=\s*["'][^"']*["']/gi, '');
-  return sanitized;
 }
 
 function fallbackExtract(html: string): { title: string; content: string } {
@@ -77,23 +76,76 @@ function fallbackExtract(html: string): { title: string; content: string } {
   return { title, content: body.innerHTML };
 }
 
-function extractImageFromDocument(doc: Document, articleContent?: string | null): string | null {
+function extractImageFromHtml(html: string, doc: Document): string | null {
   const metaSelectors = [
     'meta[property="og:image"]',
     'meta[name="twitter:image"]',
     'meta[property="og:image:secure_url"]',
   ];
+
   for (const sel of metaSelectors) {
     const meta = doc.querySelector(sel);
     const content = meta?.getAttribute('content');
     if (content?.startsWith('http')) return content;
   }
-  if (articleContent) {
-    const { document: contentDoc } = parseHTML(articleContent);
-    const firstImg = contentDoc.querySelector('img');
-    if (firstImg?.src) return firstImg.src;
+
+  const imgMatch = html.match(/<img\b[^>]*\bsrc\s*=\s*(["'])(https?:\/\/[^"'\s>]+)\1/i) ||
+    html.match(/<img\b[^>]*\bsrc\s*=\s*(https?:\/\/[^\s>]+)/i);
+  return imgMatch?.[2] || imgMatch?.[1] || null;
+}
+
+function isBlockedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === 'metadata.google.internal' ||
+    host === 'metadata.azure.internal' ||
+    host === '169.254.169.254' ||
+    host === '169.254.169.253' ||
+    host === '100.100.100.200' ||
+    host === '100.100.100.100'
+  ) {
+    return true;
   }
-  return null;
+
+  if (host.includes(':')) {
+    const normalized = host.replace(/^\[|\]$/g, '');
+    if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') return true;
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+    if (normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) return true;
+    return false;
+  }
+
+  const ipv4 = host.match(/^(\d{1,3}\.){3}\d{1,3}$/);
+  if (ipv4) {
+    const octets = host.split('.').map(Number);
+    if (octets.some(n => Number.isNaN(n) || n < 0 || n > 255)) return true;
+    const [a, b] = octets;
+
+    if (a === 0 || a === 10 || a === 127 || a === 255) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    return false;
+  }
+
+  if (host.endsWith('.local') || host.endsWith('.internal') || host.includes('metadata')) return true;
+
+  return false;
+}
+
+function validateUrl(rawUrl: string): URL {
+  const url = new URL(rawUrl);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Only http and https URLs are allowed');
+  }
+  if (isBlockedHost(url.hostname)) {
+    throw new Error('Blocked host');
+  }
+  return url;
 }
 
 async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData> {
@@ -121,6 +173,9 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       document.querySelector('meta[name="publishdate"]')?.getAttribute('content');
     if (dateMeta) published = dateMeta;
 
+    // Extract the image before Readability mutates the document.
+    const image = extractImageFromHtml(html, document);
+
     const reader = new Readability(document);
     let parsed = reader.parse();
     let content = parsed?.content || '';
@@ -137,7 +192,6 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       throw new Error('Could not extract article content');
     }
 
-    const image = extractImageFromDocument(document, parsed?.content || content);
     const sanitisedContent = sanitizeHtml(content);
     const ttr = computeReadingTime(sanitisedContent);
 
@@ -188,15 +242,18 @@ async function setCachedArticle(url: string, data: ArticleData, env: Env): Promi
 // Turnstile verification (optional)
 // ------------------------------
 async function verifyTurnstile(token: string, ip: string, secretKey: string): Promise<boolean> {
+  if (!secretKey) return false;
+
   const formData = new FormData();
   formData.append('secret', secretKey);
   formData.append('response', token);
   if (ip) formData.append('remoteip', ip);
+
   const result = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
     method: 'POST',
     body: formData,
   });
-  const outcome = await result.json() as any;
+  const outcome = await result.json() as { success?: boolean };
   return outcome.success === true;
 }
 
@@ -208,7 +265,7 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
   const publishedDate = article.published ? new Date(article.published).toLocaleDateString() : 'Publishing time not found';
   const author = article.author || 'No author found';
   const imageHtml = article.image && !article.content.includes(article.image)
-    ? `<img src="${article.image}" alt="${article.title}" class="w-full mx-auto my-5 rounded shadow" />`
+    ? `<img src="${escapeHtml(article.image)}" alt="${escapeHtml(article.title)}" class="w-full mx-auto my-5 rounded shadow" />`
     : '';
 
   return `<!DOCTYPE html>
@@ -231,12 +288,12 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
       <div class="flex gap-6">
         <a href="/#how-it-works" class="hover:underline">How it works ?</a>
-        <a href="https://github.com/yourusername/private-article-reader" target="_blank" class="hover:underline">Source</a>
+        <a href="https://github.com/yourusername/private-article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
       </div>
     </nav>
     <main class="my-8">
       <div class="bg-white rounded-lg shadow p-6">
-        <a href="${escapeHtml(sourceUrl)}" target="_blank" class="flex items-center justify-center gap-2 bg-yellow-500 text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
+        <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 bg-yellow-500 text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
         <h1 class="text-2xl md:text-3xl font-bold text-center my-4">${escapeHtml(article.title)}</h1>
         ${imageHtml}
         <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-600 mt-4 mb-8">
@@ -254,13 +311,26 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
 
 function escapeHtml(str: string): string {
   if (!str) return '';
-  return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
+  return str.replace(/[&<>"']/g, m => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[m] || m));
 }
 
 // ------------------------------
 // Hono app
 // ------------------------------
 const app = new Hono<{ Bindings: Env }>();
+
+app.use('*', async (c, next) => {
+  await next();
+  c.header('X-Frame-Options', 'DENY');
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('Referrer-Policy', 'no-referrer');
+});
 
 // Homepage with form (GET to /article)
 app.get('/', (c) => {
@@ -285,7 +355,7 @@ app.get('/', (c) => {
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
       <div class="flex gap-6">
         <a href="/#how-it-works" class="hover:underline">How it works ?</a>
-        <a href="https://github.com/yourusername/private-article-reader" target="_blank" class="hover:underline">Source</a>
+        <a href="https://github.com/yourusername/private-article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
       </div>
     </nav>
     <main class="my-8">
@@ -320,9 +390,7 @@ app.get('/article', async (c) => {
 
   let validUrl: string;
   try {
-    const u = new URL(urlParam);
-    if (!u.protocol.startsWith('http')) throw new Error();
-    validUrl = u.href;
+    validUrl = validateUrl(urlParam).href;
   } catch {
     return c.text('Invalid URL. Please provide a valid http:// or https:// address', 400);
   }
@@ -332,6 +400,24 @@ app.get('/article', async (c) => {
   if (cached) {
     const { fetchedAt, ...data } = cached;
     return c.html(renderArticlePage(data, validUrl));
+  }
+
+  const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
+  if (turnstileEnabled) {
+    if (!c.env.TURNSTILE_SECRET_KEY) {
+      return c.text('Turnstile enabled but TURNSTILE_SECRET_KEY missing', 500);
+    }
+
+    const turnstileToken = c.req.query('cf-turnstile-response') || c.req.query('turnstileToken');
+    if (!turnstileToken) {
+      return c.text('Turnstile token missing', 400);
+    }
+
+    const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || '';
+    const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
+    if (!ok) {
+      return c.text('CAPTCHA verification failed', 403);
+    }
   }
 
   try {
@@ -348,32 +434,38 @@ app.get('/article', async (c) => {
 // API endpoint (kept for potential client-side use, but not used by the homepage)
 app.post('/api/extract', async (c) => {
   const body = await c.req.json().catch(() => null);
-  if (!body || !body.url) return c.text('Missing "url" field', 400);
+  if (!body || typeof body.url !== 'string') return c.text('Missing "url" field', 400);
 
   const { url, turnstileToken } = body;
+
+  let validUrl: string;
   try {
-    new URL(url);
+    validUrl = validateUrl(url).href;
   } catch {
     return c.text('Invalid URL', 400);
   }
 
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   if (turnstileEnabled) {
+    if (!c.env.TURNSTILE_SECRET_KEY) {
+      return c.text('Turnstile enabled but TURNSTILE_SECRET_KEY missing', 500);
+    }
+
     if (!turnstileToken) return c.text('Turnstile token missing', 400);
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || '';
-    const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY!);
+    const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
     if (!ok) return c.text('CAPTCHA verification failed', 403);
   }
 
-  const cached = await getCachedArticle(url, c.env);
+  const cached = await getCachedArticle(validUrl, c.env);
   if (cached) {
     const { fetchedAt, ...data } = cached;
     return c.json(data);
   }
 
   try {
-    const article = await fetchAndParseArticle(url, c.env);
-    await setCachedArticle(url, article, c.env);
+    const article = await fetchAndParseArticle(validUrl, c.env);
+    await setCachedArticle(validUrl, article, c.env);
     return c.json(article);
   } catch (err) {
     console.error(err);
