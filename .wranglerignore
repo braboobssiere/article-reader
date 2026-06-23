@@ -1,0 +1,7 @@
+.git
+node_modules
+*.log
+.DS_Store
+*.test.js
+*.spec.js
+.github
