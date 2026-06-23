@@ -262,14 +262,6 @@ function escapeHtml(str: string): string {
 // ------------------------------
 const app = new Hono<{ Bindings: Env }>();
 
-// Favicon
-app.get('/favicon.ico', (c) => {
-  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
-  return new Response(gif, {
-    headers: { 'Content-Type': 'image/gif', 'Cache-Control': 'public, max-age=86400' },
-  });
-});
-
 // Homepage with form (GET to /article)
 app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
