@@ -1,0 +1,50 @@
+name: Update Dependencies
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Update dependencies
+        run: |
+          npx npm-check-updates -u
+          npm install
+
+      - name: Build Tailwind CSS
+        run: |
+          # Ensure the input CSS file exists (create if missing)
+          if [ ! -f tailwind.css ]; then
+            echo "@tailwind base;" > tailwind.css
+            echo "@tailwind components;" >> tailwind.css
+            echo "@tailwind utilities;" >> tailwind.css
+          fi
+          # Ensure output directory exists
+          mkdir -p public
+          # Build (minified)
+          npx tailwindcss -i tailwind.css -o public/style.css --minify
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage all changed files (package.json, package-lock.json, public/style.css)
+          git add package.json package-lock.json public/style.css
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "chore: update dependencies and rebuild Tailwind CSS"
+          git push
