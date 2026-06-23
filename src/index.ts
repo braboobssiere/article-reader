@@ -332,7 +332,7 @@ app.use('*', async (c, next) => {
   c.header('Referrer-Policy', 'no-referrer');
 });
 
-// Homepage with form (GET to /article)
+// Homepage with form (POST to /article)
 app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   const siteKey = c.env.TURNSTILE_SITE_KEY;
@@ -360,7 +360,7 @@ app.get('/', (c) => {
     </nav>
     <main class="my-8">
       <div class="bg-white rounded-lg shadow p-6 mb-8">
-        <form action="/article" method="GET" class="flex flex-col gap-4">
+        <form action="/article" method="POST" class="flex flex-col gap-4">
           <input type="url" name="url" required placeholder="Enter article URL (e.g. https://example.com/news)" class="border-2 rounded px-3 py-2 outline-none focus:border-gray-400">
           ${turnstileEnabled ? `<div class="cf-turnstile" data-sitekey="${siteKey}" data-theme="light"></div>` : ''}
           <button type="submit" class="bg-black text-white py-2 rounded hover:bg-gray-800 transition">Load Article</button>
@@ -381,9 +381,10 @@ app.get('/', (c) => {
   return c.html(html);
 });
 
-// Direct article view with URL parameter
-app.get('/article', async (c) => {
-  const urlParam = c.req.query('url');
+// Direct article view
+app.post('/article', async (c) => {
+  const body = await c.req.parseBody();
+  const urlParam = typeof body.url === 'string' ? body.url : null;
   if (!urlParam) {
     return c.redirect('/');
   }
@@ -395,20 +396,19 @@ app.get('/article', async (c) => {
     return c.text('Invalid URL. Please provide a valid http:// or https:// address', 400);
   }
 
-  // Check cache
-  const cached = await getCachedArticle(validUrl, c.env);
-  if (cached) {
-    const { fetchedAt, ...data } = cached;
-    return c.html(renderArticlePage(data, validUrl));
-  }
-
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   if (turnstileEnabled) {
     if (!c.env.TURNSTILE_SECRET_KEY) {
       return c.text('Turnstile enabled but TURNSTILE_SECRET_KEY missing', 500);
     }
 
-    const turnstileToken = c.req.query('cf-turnstile-response') || c.req.query('turnstileToken');
+    const turnstileToken =
+      typeof body['cf-turnstile-response'] === 'string'
+        ? body['cf-turnstile-response']
+        : typeof body.turnstileToken === 'string'
+          ? body.turnstileToken
+          : undefined;
+
     if (!turnstileToken) {
       return c.text('Turnstile token missing', 400);
     }
@@ -418,6 +418,13 @@ app.get('/article', async (c) => {
     if (!ok) {
       return c.text('CAPTCHA verification failed', 403);
     }
+  }
+
+  // Check cache
+  const cached = await getCachedArticle(validUrl, c.env);
+  if (cached) {
+    const { fetchedAt, ...data } = cached;
+    return c.html(renderArticlePage(data, validUrl));
   }
 
   try {
