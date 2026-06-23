@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "update": "npx npm-check-updates -u && npm install"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
