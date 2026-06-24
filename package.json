@@ -15,6 +15,7 @@
     "ssrf-guard": "^0.4.1"
   },
   "devDependencies": {
-    "vercel": "^54.15.1"
+    "@types/sanitize-html": "^2.13.0",
+    "vercel": "^44.0.0"
   }
 }
