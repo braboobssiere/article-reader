@@ -93,7 +93,14 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const html = await response.text();
-    const { document } = parseHTML(html);
+
+    // 2. Strip heavy tags before parsing
+    const cleanHtml = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
+
+    const { document } = parseHTML(cleanHtml);
 
     // Metadata extraction (lightweight)
     let author: string | null = null;
@@ -107,7 +114,7 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       document.querySelector('meta[name="publishdate"]')?.getAttribute('content');
     if (dateMeta) published = dateMeta;
 
-    const image = extractImageFromHtml(html, document);
+    const image = extractImageFromHtml(html, document); // still use original html for meta og:image
 
     // Extract with Readability (no fallback)
     const reader = new Readability(document);
@@ -117,18 +124,22 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       throw new Error('Could not extract article content');
     }
 
-    // Sanitize with sanitize-html (allow only safe tags and attributes)
+    // 4. Optimized sanitize-html config (faster)
     const sanitizedContent = sanitizeHtml(parsed.content, {
-      allowedTags: ['p', 'br', 'strong', 'em', 'i', 'b', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-                    'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img', 'span', 'div', 'section',
-                    'article', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-      allowedAttributes: {
-        a: ['href', 'target'],
-        img: ['src', 'alt', 'width', 'height'],
-        '*': ['class', 'style']  // optional, but safe
-      },
-      allowedSchemes: ['http', 'https', 'mailto'],
-      allowedSchemesAppliedToAttributes: ['href', 'src'],
+      allowedTags: false, // allow all tags
+      allowedAttributes: false, // allow all attributes (we'll filter below)
+      transformTags: {
+        '*': (tagName, attribs) => {
+          const newAttribs: Record<string, string> = {};
+          for (const [key, val] of Object.entries(attribs)) {
+            // Remove on* attributes and javascript: href
+            if (!key.startsWith('on') && !(key === 'href' && val?.toLowerCase().startsWith('javascript:'))) {
+              newAttribs[key] = val;
+            }
+          }
+          return { tagName, attribs: newAttribs };
+        }
+      }
     });
 
     const ttr = computeReadingTime(sanitizedContent);
