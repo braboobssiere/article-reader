@@ -15,6 +15,6 @@
     "ssrf-guard": "^0.4.1"
   },
   "devDependencies": {
-    "vercel": "^44.0.0"
+    "vercel": "^54.15.1"
   }
 }
