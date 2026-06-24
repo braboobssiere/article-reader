@@ -1,8 +1,5 @@
 {
   "outputDirectory": ".",
-  "builds": [
-    { "src": "api/index.ts", "use": "@vercel/edge" }
-  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ]
