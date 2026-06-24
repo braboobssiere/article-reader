@@ -368,6 +368,16 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
     body.theme-dark .reader-toolbar .active:hover {
       background: #ddd;
     }
+    body.theme-dark nav {
+      border-bottom-color: #444 !important;
+    }
+    body.theme-dark .source-link {
+      background-color: #d97706 !important;
+      color: #000 !important;
+    }
+    body.theme-dark .source-link:hover {
+      background-color: #b45309 !important;
+    }
 
     /* Mobile adjustments: full width, no card styling, hide width controls */
     @media (max-width: 768px) {
@@ -416,7 +426,7 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
     </nav>
     <main class="my-8">
       <div class="bg-white rounded-lg shadow p-6" style="background-color: var(--bg-color); color: var(--text-color);">
-        <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 bg-yellow-500 text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
+        <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="source-link flex items-center justify-center gap-2 bg-yellow-500 text-black text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
         <h1 class="text-2xl md:text-3xl font-bold text-center my-4">${escapeHtml(article.title)}</h1>
         ${imageHtml}
         <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-600 mt-4 mb-8" style="color: var(--text-color); opacity: 0.8;">
