@@ -228,6 +228,28 @@ async function verifyTurnstile(token: string, ip: string, secretKey: string): Pr
 // ------------------------------
 // HTML rendering helpers
 // ------------------------------
+function renderErrorPage(message: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Error – Private Article Reader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded-lg shadow max-w-md w-full text-center">
+    <h1 class="text-2xl font-bold mb-4">⚠️ Error</h1>
+    <p class="text-gray-700 mb-6">${escapeHtml(message)}</p>
+    <div class="flex gap-4 justify-center">
+      <button onclick="history.back()" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition">← Go Back</button>
+      <a href="/" class="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition">Home</a>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function renderArticlePage(article: ArticleData, sourceUrl: string): string {
   const readingTime = Math.round(article.ttr / 60);
   const publishedDate = article.published ? new Date(article.published).toLocaleDateString() : 'Publishing time not found';
@@ -566,7 +588,7 @@ app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   const siteKey = c.env.TURNSTILE_SITE_KEY;
   if (turnstileEnabled && !siteKey) {
-    return c.text('Turnstile enabled but TURNSTILE_SITE_KEY missing', 500);
+    return c.html(renderErrorPage('Turnstile enabled but TURNSTILE_SITE_KEY missing'));
   }
 
   const html = `<!DOCTYPE html>
@@ -687,17 +709,38 @@ app.get('/', (c) => {
         });
       }
 
-      form.addEventListener('submit', () => {
+      // New: handle form submission via fetch
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
         const url = input.value.trim();
         if (!url) return;
 
-        const next = { link: url, date: new Date().toISOString() };
-        const current = readHistory().filter((entry) => entry && entry.link !== url);
-        current.unshift(next);
-        writeHistory(current.slice(0, 100));
-        renderHistory();
+        const formData = new FormData(form);
+        try {
+          const response = await fetch('/article', {
+            method: 'POST',
+            body: formData,
+          });
+
+          // Always replace the entire page with the response (article HTML or error HTML)
+          const html = await response.text();
+          document.documentElement.innerHTML = html;
+
+          // If the response was successful, add the URL to history
+          if (response.ok) {
+            const next = { link: url, date: new Date().toISOString() };
+            const current = readHistory().filter((entry) => entry && entry.link !== url);
+            current.unshift(next);
+            writeHistory(current.slice(0, 100));
+            // The page is now replaced, so we don't need to re-render history here.
+          }
+        } catch (err) {
+          // Network error – show a simple error message
+          document.documentElement.innerHTML = '<div class="p-8 text-center">Network error – please try again.</div>';
+        }
       });
 
+      // Clear history
       clearButton.addEventListener('click', () => {
         localStorage.removeItem(STORAGE_KEY);
         renderHistory();
@@ -711,25 +754,26 @@ app.get('/', (c) => {
   return c.html(html);
 });
 
-// Direct article view (unchanged)
+// Direct article view
 app.post('/article', async (c) => {
   const body = await c.req.parseBody();
   const urlParam = typeof body.url === 'string' ? body.url : null;
   if (!urlParam) {
-    return c.redirect('/');
+    return c.html(renderErrorPage('No URL provided'));
   }
 
   let validUrl: string;
   try {
     validUrl = validateUrl(urlParam).href;
-  } catch {
-    return c.text('Invalid URL. Please provide a valid http:// or https:// address', 400);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Invalid URL';
+    return c.html(renderErrorPage(msg));
   }
 
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   if (turnstileEnabled) {
     if (!c.env.TURNSTILE_SECRET_KEY) {
-      return c.text('Turnstile enabled but TURNSTILE_SECRET_KEY missing', 500);
+      return c.html(renderErrorPage('Turnstile enabled but TURNSTILE_SECRET_KEY missing'));
     }
 
     const turnstileToken =
@@ -740,13 +784,13 @@ app.post('/article', async (c) => {
           : undefined;
 
     if (!turnstileToken) {
-      return c.text('Turnstile token missing', 400);
+      return c.html(renderErrorPage('Turnstile token missing'));
     }
 
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || '';
     const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
     if (!ok) {
-      return c.text('CAPTCHA verification failed', 403);
+      return c.html(renderErrorPage('CAPTCHA verification failed'));
     }
   }
 
@@ -764,11 +808,11 @@ app.post('/article', async (c) => {
   } catch (err) {
     console.error(err);
     const message = err instanceof Error ? err.message : 'Extraction failed';
-    return c.text(`Error: ${message}`, 500);
+    return c.html(renderErrorPage(message));
   }
 });
 
-// API endpoint (kept for potential client-side use, but not used by the homepage)
+// API endpoint (kept for potential client-side use)
 app.post('/api/extract', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body || typeof body.url !== 'string') return c.text('Missing "url" field', 400);
