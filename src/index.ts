@@ -314,6 +314,7 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
       margin-bottom: 1.5rem;
       backdrop-filter: blur(4px);
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: background 0.2s, border-color 0.2s;
     }
     .reader-toolbar button {
       background: transparent;
@@ -322,7 +323,7 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
       padding: 0.25rem 0.75rem;
       font-size: 0.9rem;
       cursor: pointer;
-      transition: background 0.15s;
+      transition: background 0.15s, border-color 0.15s;
       color: inherit;
     }
     .reader-toolbar button:hover {
@@ -341,8 +342,34 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
       opacity: 0.7;
       margin-right: 0.2rem;
     }
+    .reader-toolbar .width-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
 
-    /* Mobile adjustments: full width, no card styling */
+    /* Dark theme overrides */
+    body.theme-dark .reader-toolbar {
+      background: rgba(0,0,0,0.7);
+      border-color: #444;
+    }
+    body.theme-dark .reader-toolbar button {
+      border-color: #555;
+      color: #ddd;
+    }
+    body.theme-dark .reader-toolbar button:hover {
+      background: rgba(255,255,255,0.1);
+    }
+    body.theme-dark .reader-toolbar .active {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+    body.theme-dark .reader-toolbar .active:hover {
+      background: #ddd;
+    }
+
+    /* Mobile adjustments: full width, no card styling, hide width controls */
     @media (max-width: 768px) {
       .max-w-5xl {
         max-width: 100% !important;
@@ -361,6 +388,9 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
         padding: 0.5rem;
         background: rgba(255,255,255,0.8);
       }
+      body.theme-dark .reader-toolbar {
+        background: rgba(0,0,0,0.8);
+      }
       .reader-toolbar .group-label {
         font-size: 0.7rem;
       }
@@ -368,9 +398,9 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
         font-size: 0.8rem;
         padding: 0.15rem 0.5rem;
       }
-      /* The prose width is still controlled by the CSS variable */
-      .prose {
-        max-width: var(--prose-max-width);
+      /* Hide width controls on mobile */
+      .reader-toolbar .width-group {
+        display: none !important;
       }
     }
   </style>
@@ -406,10 +436,12 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
           <button id="font-decrease" title="Decrease font size">A-</button>
           <button id="font-increase" title="Increase font size">A+</button>
 
-          <span class="group-label ml-2">Width</span>
-          <button data-width="narrow">Narrow</button>
-          <button data-width="medium" class="active">Medium</button>
-          <button data-width="wide">Wide</button>
+          <span class="width-group">
+            <span class="group-label ml-2">Width</span>
+            <button data-width="narrow">Narrow</button>
+            <button data-width="medium" class="active">Medium</button>
+            <button data-width="wide">Wide</button>
+          </span>
         </div>
 
         <div class="prose max-w-6xl mx-auto my-0 leading-relaxed" id="article-content">
@@ -446,19 +478,23 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
 
       function applyTheme(theme) {
         const root = document.documentElement;
+        const body = document.body;
         let bg, text;
         switch (theme) {
           case 'light':
             bg = '#ffffff';
             text = '#1a1a1a';
+            body.classList.remove('theme-dark');
             break;
           case 'dark':
             bg = '#1e1e1e';
             text = '#d4d4d4';
+            body.classList.add('theme-dark');
             break;
-          default:
+          default: // sepia
             bg = '#fbf4e8';
             text = '#5b4637';
+            body.classList.remove('theme-dark');
         }
         root.style.setProperty('--bg-color', bg);
         root.style.setProperty('--text-color', text);
