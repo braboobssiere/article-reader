@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
-import { guard } from 'ssrf-guard';
+import { isPrivateIp, isBlockedHostname, normalizeUrlHostname } from 'ssrf-guard';
 
 // ------------------------------
 // Environment Bindings
@@ -95,73 +95,21 @@ function extractImageFromHtml(html: string, doc: Document): string | null {
   return imgMatch?.[2] || imgMatch?.[1] || null;
 }
 
+// SSRF protection using ssrf-guard (core)
 function isBlockedHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-
-  if (
-    host === 'localhost' ||
-    host.endsWith('.localhost') ||
-    host === 'metadata.google.internal' ||
-    host === 'metadata.azure.internal' ||
-    host === '169.254.169.254' ||
-    host === '169.254.169.253' ||
-    host === '100.100.100.200' ||
-    host === '100.100.100.100'
-  ) {
-    return true;
-  }
-
-  if (host.includes(':')) {
-    const normalized = host.replace(/^\[|\]$/g, '');
-    if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') return true;
-    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
-    if (normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) return true;
-    return false;
-  }
-
-  const ipv4 = host.match(/^(\d{1,3}\.){3}\d{1,3}$/);
-  if (ipv4) {
-    const octets = host.split('.').map(Number);
-    if (octets.some(n => Number.isNaN(n) || n < 0 || n > 255)) return true;
-    const [a, b] = octets;
-
-    if (a === 0 || a === 10 || a === 127 || a === 255) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    return false;
-  }
-
-  if (host.endsWith('.local') || host.endsWith('.internal') || host.includes('metadata')) return true;
-
-  return false;
+  const normalized = normalizeUrlHostname(hostname);
+  const policy = {
+    exact: ['localhost', 'metadata.google.internal', 'metadata.azure.internal'],
+    suffixes: ['.local', '.internal'],
+  };
+  return isPrivateIp(normalized) || isBlockedHostname(normalized, policy);
 }
 
 function validateUrl(rawUrl: string): URL {
-  // Try ssrf-guard first
-  let safe = false;
-  try {
-    safe = guard(rawUrl);
-  } catch {
-    // ssrf-guard may throw on invalid URLs; fallback to manual
-    safe = false;
-  }
-
-  // If ssrf-guard says unsafe, fallback to manual check
-  if (!safe) {
-    const url = new URL(rawUrl);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      throw new Error('Only http and https URLs are allowed');
-    }
-    if (isBlockedHost(url.hostname)) {
-      throw new Error('Blocked host');
-    }
-    return url;
-  }
-
-  // ssrf-guard passed, but we still do manual extra checks
   const url = new URL(rawUrl);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Only http and https URLs are allowed');
+  }
   if (isBlockedHost(url.hostname)) {
     throw new Error('Blocked host');
   }
@@ -428,7 +376,6 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
         font-size: 0.8rem;
         padding: 0.15rem 0.5rem;
       }
-      /* Hide width controls on mobile */
       .reader-toolbar .width-group {
         display: none !important;
       }
