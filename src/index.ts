@@ -226,7 +226,7 @@ async function verifyTurnstile(token: string, ip: string, secretKey: string): Pr
 }
 
 // ------------------------------
-// HTML rendering helpers
+// Error page rendering
 // ------------------------------
 function renderErrorPage(message: string): string {
   return `<!DOCTYPE html>
@@ -237,19 +237,29 @@ function renderErrorPage(message: string): string {
   <title>Error – Private Article Reader</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-8 rounded-lg shadow max-w-md w-full text-center">
-    <h1 class="text-2xl font-bold mb-4">⚠️ Error</h1>
-    <p class="text-gray-700 mb-6">${escapeHtml(message)}</p>
-    <div class="flex gap-4 justify-center">
-      <button onclick="history.back()" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition">← Go Back</button>
-      <a href="/" class="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition">Home</a>
-    </div>
+<body class="bg-gray-100">
+  <div class="max-w-5xl mx-auto px-4 font-sans">
+    <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
+      <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
+      <div class="flex gap-6">
+        <a href="/#how-it-works" class="hover:underline">How it works ?</a>
+        <a href="https://github.com/yourusername/private-article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
+      </div>
+    </nav>
+    <main class="my-8">
+      <div class="bg-white rounded-lg shadow p-6 text-center">
+        <p class="text-red-600 font-semibold">⚠️ ${escapeHtml(message)}</p>
+        <a href="/" class="inline-block mt-4 bg-black text-white py-2 px-4 rounded hover:bg-gray-800 transition">← Back to home</a>
+      </div>
+    </main>
   </div>
 </body>
 </html>`;
 }
 
+// ------------------------------
+// HTML rendering helpers
+// ------------------------------
 function renderArticlePage(article: ArticleData, sourceUrl: string): string {
   const readingTime = Math.round(article.ttr / 60);
   const publishedDate = article.published ? new Date(article.published).toLocaleDateString() : 'Publishing time not found';
@@ -588,7 +598,7 @@ app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   const siteKey = c.env.TURNSTILE_SITE_KEY;
   if (turnstileEnabled && !siteKey) {
-    return c.html(renderErrorPage('Turnstile enabled but TURNSTILE_SITE_KEY missing'));
+    return c.text('Turnstile enabled but TURNSTILE_SITE_KEY missing', 500);
   }
 
   const html = `<!DOCTYPE html>
@@ -709,38 +719,17 @@ app.get('/', (c) => {
         });
       }
 
-      // New: handle form submission via fetch
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+      form.addEventListener('submit', () => {
         const url = input.value.trim();
         if (!url) return;
 
-        const formData = new FormData(form);
-        try {
-          const response = await fetch('/article', {
-            method: 'POST',
-            body: formData,
-          });
-
-          // Always replace the entire page with the response (article HTML or error HTML)
-          const html = await response.text();
-          document.documentElement.innerHTML = html;
-
-          // If the response was successful, add the URL to history
-          if (response.ok) {
-            const next = { link: url, date: new Date().toISOString() };
-            const current = readHistory().filter((entry) => entry && entry.link !== url);
-            current.unshift(next);
-            writeHistory(current.slice(0, 100));
-            // The page is now replaced, so we don't need to re-render history here.
-          }
-        } catch (err) {
-          // Network error – show a simple error message
-          document.documentElement.innerHTML = '<div class="p-8 text-center">Network error – please try again.</div>';
-        }
+        const next = { link: url, date: new Date().toISOString() };
+        const current = readHistory().filter((entry) => entry && entry.link !== url);
+        current.unshift(next);
+        writeHistory(current.slice(0, 100));
+        renderHistory();
       });
 
-      // Clear history
       clearButton.addEventListener('click', () => {
         localStorage.removeItem(STORAGE_KEY);
         renderHistory();
@@ -754,12 +743,12 @@ app.get('/', (c) => {
   return c.html(html);
 });
 
-// Direct article view
+// Direct article view (with error pages)
 app.post('/article', async (c) => {
   const body = await c.req.parseBody();
   const urlParam = typeof body.url === 'string' ? body.url : null;
   if (!urlParam) {
-    return c.html(renderErrorPage('No URL provided'));
+    return c.html(renderErrorPage('Invalid URL. Please provide a valid http:// or https:// address'), 400);
   }
 
   let validUrl: string;
@@ -767,13 +756,13 @@ app.post('/article', async (c) => {
     validUrl = validateUrl(urlParam).href;
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Invalid URL';
-    return c.html(renderErrorPage(msg));
+    return c.html(renderErrorPage(msg), 400);
   }
 
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   if (turnstileEnabled) {
     if (!c.env.TURNSTILE_SECRET_KEY) {
-      return c.html(renderErrorPage('Turnstile enabled but TURNSTILE_SECRET_KEY missing'));
+      return c.html(renderErrorPage('Server configuration error: Turnstile secret missing'), 500);
     }
 
     const turnstileToken =
@@ -784,13 +773,13 @@ app.post('/article', async (c) => {
           : undefined;
 
     if (!turnstileToken) {
-      return c.html(renderErrorPage('Turnstile token missing'));
+      return c.html(renderErrorPage('CAPTCHA token missing. Please refresh and try again.'), 400);
     }
 
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || '';
     const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
     if (!ok) {
-      return c.html(renderErrorPage('CAPTCHA verification failed'));
+      return c.html(renderErrorPage('CAPTCHA verification failed. Please try again.'), 403);
     }
   }
 
@@ -808,11 +797,11 @@ app.post('/article', async (c) => {
   } catch (err) {
     console.error(err);
     const message = err instanceof Error ? err.message : 'Extraction failed';
-    return c.html(renderErrorPage(message));
+    return c.html(renderErrorPage(`Error: ${message}`), 500);
   }
 });
 
-// API endpoint (kept for potential client-side use)
+// API endpoint (kept for potential client-side use, but not used by the homepage)
 app.post('/api/extract', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body || typeof body.url !== 'string') return c.text('Missing "url" field', 400);
