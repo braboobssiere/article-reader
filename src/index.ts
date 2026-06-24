@@ -276,13 +276,74 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
   <title>${escapeHtml(article.title)} – Private Article Reader</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .prose { max-width: 65ch; margin: 0 auto; line-height: 1.8; }
+    /* Reader variables */
+    :root {
+      --bg-color: #fbf4e8;
+      --text-color: #5b4637;
+      --prose-max-width: 65ch;
+      --font-size-base: 18px;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    .prose {
+      max-width: var(--prose-max-width);
+      margin: 0 auto;
+      line-height: 1.8;
+      font-size: var(--font-size-base);
+    }
+
     .prose p { margin-bottom: 1.2em; }
     .prose img { margin: 2em auto; border-radius: 0.5rem; }
     .prose h2, .prose h3 { font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; }
+
+    /* Toolbar */
+    .reader-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1rem;
+      background: rgba(255,255,255,0.6);
+      border-radius: 9999px;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .reader-toolbar button {
+      background: transparent;
+      border: 1px solid #ccc;
+      border-radius: 9999px;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      color: inherit;
+    }
+    .reader-toolbar button:hover {
+      background: rgba(0,0,0,0.08);
+    }
+    .reader-toolbar .active {
+      background: #000;
+      color: #fff;
+      border-color: #000;
+    }
+    .reader-toolbar .active:hover {
+      background: #333;
+    }
+    .reader-toolbar .group-label {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-right: 0.2rem;
+    }
   </style>
 </head>
-<body class="bg-gray-100">
+<body>
   <div class="max-w-5xl mx-auto px-4 font-sans">
     <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
@@ -292,19 +353,160 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
       </div>
     </nav>
     <main class="my-8">
-      <div class="bg-white rounded-lg shadow p-6">
+      <div class="bg-white rounded-lg shadow p-6" style="background-color: var(--bg-color); color: var(--text-color);">
         <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 bg-yellow-500 text-center py-1 rounded font-bold underline mb-6">📄 Read at source</a>
         <h1 class="text-2xl md:text-3xl font-bold text-center my-4">${escapeHtml(article.title)}</h1>
         ${imageHtml}
-        <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-600 mt-4 mb-8">
+        <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-600 mt-4 mb-8" style="color: var(--text-color); opacity: 0.8;">
           <div class="flex items-center gap-1">👤 ${escapeHtml(author)}</div>
           <div class="flex items-center gap-1">📅 ${escapeHtml(publishedDate)}</div>
           <div class="flex items-center gap-1">⏱️ ${readingTime} min read</div>
         </div>
-        <div class="prose max-w-6xl mx-auto my-0 leading-relaxed">${article.content}</div>
+
+        <!-- Reader Controls -->
+        <div class="reader-toolbar" id="reader-controls">
+          <span class="group-label">Theme</span>
+          <button data-theme="sepia" class="active">Sepia</button>
+          <button data-theme="light">Light</button>
+          <button data-theme="dark">Dark</button>
+
+          <span class="group-label ml-2">Font</span>
+          <button id="font-decrease" title="Decrease font size">A-</button>
+          <button id="font-increase" title="Increase font size">A+</button>
+
+          <span class="group-label ml-2">Width</span>
+          <button data-width="narrow">Narrow</button>
+          <button data-width="medium" class="active">Medium</button>
+          <button data-width="wide">Wide</button>
+        </div>
+
+        <div class="prose max-w-6xl mx-auto my-0 leading-relaxed" id="article-content">
+          ${article.content}
+        </div>
       </div>
     </main>
   </div>
+
+  <script>
+    (function() {
+      const STORAGE_KEY = 'readerPreferences';
+
+      // Defaults
+      const defaults = {
+        theme: 'sepia',
+        fontSize: 18,
+        width: 'medium'
+      };
+
+      // Load preferences from localStorage
+      function loadPreferences() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return { ...defaults };
+          const parsed = JSON.parse(raw);
+          return { ...defaults, ...parsed };
+        } catch {
+          return { ...defaults };
+        }
+      }
+
+      function savePreferences(prefs) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+      }
+
+      // Apply theme
+      function applyTheme(theme) {
+        const root = document.documentElement;
+        let bg, text;
+        switch (theme) {
+          case 'light':
+            bg = '#ffffff';
+            text = '#1a1a1a';
+            break;
+          case 'dark':
+            bg = '#1e1e1e';
+            text = '#d4d4d4';
+            break;
+          default: // sepia
+            bg = '#fbf4e8';
+            text = '#5b4637';
+        }
+        root.style.setProperty('--bg-color', bg);
+        root.style.setProperty('--text-color', text);
+
+        // Update active button
+        document.querySelectorAll('[data-theme]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.theme === theme);
+        });
+      }
+
+      // Apply font size
+      function applyFontSize(size) {
+        document.documentElement.style.setProperty('--font-size-base', size + 'px');
+        // Update displayed size (optional)
+      }
+
+      // Apply width
+      function applyWidth(width) {
+        let maxWidth;
+        switch (width) {
+          case 'narrow': maxWidth = '50ch'; break;
+          case 'wide': maxWidth = '90ch'; break;
+          default: maxWidth = '65ch'; // medium
+        }
+        document.documentElement.style.setProperty('--prose-max-width', maxWidth);
+
+        document.querySelectorAll('[data-width]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.width === width);
+        });
+      }
+
+      // Initialize
+      const prefs = loadPreferences();
+      applyTheme(prefs.theme);
+      applyFontSize(prefs.fontSize);
+      applyWidth(prefs.width);
+
+      // Event listeners for theme buttons
+      document.querySelectorAll('[data-theme]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          const theme = this.dataset.theme;
+          prefs.theme = theme;
+          applyTheme(theme);
+          savePreferences(prefs);
+        });
+      });
+
+      // Font size buttons
+      document.getElementById('font-decrease').addEventListener('click', function() {
+        prefs.fontSize = Math.max(12, prefs.fontSize - 2);
+        applyFontSize(prefs.fontSize);
+        savePreferences(prefs);
+      });
+      document.getElementById('font-increase').addEventListener('click', function() {
+        prefs.fontSize = Math.min(32, prefs.fontSize + 2);
+        applyFontSize(prefs.fontSize);
+        savePreferences(prefs);
+      });
+
+      // Width buttons
+      document.querySelectorAll('[data-width]').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const width = this.dataset.width;
+          prefs.width = width;
+          applyWidth(width);
+          savePreferences(prefs);
+        });
+      });
+
+      // Also apply theme to the white card background - adjust the container
+      // We already set inline styles on the card div to use CSS variables.
+      // The card's background-color and color are set via inline style with var(--bg-color) etc.
+      // The toolbar also uses the same colors.
+      // The toolbar background we set to rgba(255,255,255,0.6) - we could also make it adapt.
+      // But it's fine.
+    })();
+  </script>
 </body>
 </html>`;
 }
@@ -332,7 +534,7 @@ app.use('*', async (c, next) => {
   c.header('Referrer-Policy', 'no-referrer');
 });
 
-// Homepage with form and history (from second file)
+// Homepage with form and history
 app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   const siteKey = c.env.TURNSTILE_SITE_KEY;
@@ -482,7 +684,7 @@ app.get('/', (c) => {
   return c.html(html);
 });
 
-// Direct article view (unchanged from original index.ts)
+// Direct article view (unchanged)
 app.post('/article', async (c) => {
   const body = await c.req.parseBody();
   const urlParam = typeof body.url === 'string' ? body.url : null;
