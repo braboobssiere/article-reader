@@ -332,7 +332,7 @@ app.use('*', async (c, next) => {
   c.header('Referrer-Policy', 'no-referrer');
 });
 
-// Homepage with form (POST to /article)
+// Homepage with form and history (from second file)
 app.get('/', (c) => {
   const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
   const siteKey = c.env.TURNSTILE_SITE_KEY;
@@ -358,14 +358,23 @@ app.get('/', (c) => {
         <a href="https://github.com/yourusername/private-article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
       </div>
     </nav>
-    <main class="my-8">
-      <div class="bg-white rounded-lg shadow p-6 mb-8">
-        <form action="/article" method="POST" class="flex flex-col gap-4">
-          <input type="url" name="url" required placeholder="Enter article URL (e.g. https://example.com/news)" class="border-2 rounded px-3 py-2 outline-none focus:border-gray-400">
+    <main class="my-8 space-y-8">
+      <div class="bg-white rounded-lg shadow p-6">
+        <form id="article-form" action="/article" method="POST" class="flex flex-col gap-4">
+          <input id="article-url" type="url" name="url" required placeholder="Enter article URL (e.g. https://example.com/news)" class="border-2 rounded px-3 py-2 outline-none focus:border-gray-400">
           ${turnstileEnabled ? `<div class="cf-turnstile" data-sitekey="${siteKey}" data-theme="light"></div>` : ''}
           <button type="submit" class="bg-black text-white py-2 rounded hover:bg-gray-800 transition">Load Article</button>
         </form>
       </div>
+
+      <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between gap-4 mb-4">
+          <h2 class="text-lg font-bold">History</h2>
+          <button id="clear-history" type="button" class="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-800">Clear History</button>
+        </div>
+        <ul id="history-list" class="max-h-56 overflow-y-auto divide-y divide-gray-200"></ul>
+      </div>
+
       <div id="how-it-works" class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-bold mb-4">How it works ?</h2>
         <div class="space-y-3">
@@ -376,12 +385,104 @@ app.get('/', (c) => {
       </div>
     </main>
   </div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'linkHistory';
+      const form = document.getElementById('article-form');
+      const input = document.getElementById('article-url');
+      const list = document.getElementById('history-list');
+      const clearButton = document.getElementById('clear-history');
+
+      if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement) || !(list instanceof HTMLUListElement) || !(clearButton instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      function readHistory() {
+        try {
+          const value = localStorage.getItem(STORAGE_KEY);
+          if (!value) return [];
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function writeHistory(items) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      }
+
+      function formatDate(iso) {
+        try {
+          return new Date(iso).toLocaleString('en-GB');
+        } catch {
+          return iso;
+        }
+      }
+
+      function renderHistory() {
+        const items = readHistory();
+        list.innerHTML = '';
+
+        if (!items.length) {
+          const empty = document.createElement('li');
+          empty.className = 'py-3 text-sm text-gray-500';
+          empty.textContent = 'No history yet.';
+          list.appendChild(empty);
+          return;
+        }
+
+        items.slice(0, 20).forEach((entry) => {
+          if (!entry || typeof entry.link !== 'string' || typeof entry.date !== 'string') return;
+
+          const li = document.createElement('li');
+          li.className = 'py-3 flex items-start justify-between gap-4';
+
+          const linkButton = document.createElement('button');
+          linkButton.type = 'button';
+          linkButton.className = 'text-left text-blue-600 hover:underline break-all';
+          linkButton.textContent = entry.link;
+          linkButton.addEventListener('click', () => {
+            input.value = entry.link;
+            input.focus();
+          });
+
+          const date = document.createElement('span');
+          date.className = 'shrink-0 text-sm text-gray-500';
+          date.textContent = formatDate(entry.date);
+
+          li.appendChild(linkButton);
+          li.appendChild(date);
+          list.appendChild(li);
+        });
+      }
+
+      form.addEventListener('submit', () => {
+        const url = input.value.trim();
+        if (!url) return;
+
+        const next = { link: url, date: new Date().toISOString() };
+        const current = readHistory().filter((entry) => entry && entry.link !== url);
+        current.unshift(next);
+        writeHistory(current.slice(0, 100));
+        renderHistory();
+      });
+
+      clearButton.addEventListener('click', () => {
+        localStorage.removeItem(STORAGE_KEY);
+        renderHistory();
+      });
+
+      renderHistory();
+    })();
+  </script>
 </body>
 </html>`;
   return c.html(html);
 });
 
-// Direct article view
+// Direct article view (unchanged from original index.ts)
 app.post('/article', async (c) => {
   const body = await c.req.parseBody();
   const urlParam = typeof body.url === 'string' ? body.url : null;
