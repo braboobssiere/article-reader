@@ -8,10 +8,10 @@ It also includes a history of read articles (stored in the browser’s `localSto
 ## ✨ Features
 
 - **Article extraction** – uses Mozilla’s `@mozilla/readability` to extract the main content.
-- **Clean reader view** – with configurable **theme** (sepia, light, dark), **font size** (±2px), and **reading width** (narrow, medium, wide).
+- **Clean reader view** – with configurable **theme** (sepia, light, dark), **font size**, and **reading width** (narrow, medium, wide).
 - **History** – the last 100 URLs are saved in your browser’s `localStorage` for quick access.
 - **Mobile‑optimised** – full‑width on small screens with a compact toolbar.
-- **Security** – SSRF protection via [`ssrf-guard`](https://github.com/lxieyang/ssrf-guard) (blocks private IPs, localhost, metadata endpoints, and obfuscated addresses).
+- **Security** – SSRF protection via [`ssrf-guard`](https://github.com/jonathanong/ssrf-guard) (blocks private IPs, localhost, metadata endpoints, and obfuscated addresses).
 - **Caching** – articles are cached in memory and optionally in Cloudflare KV (1‑hour TTL) to reduce latency.
 - **Optional Turnstile** – protect the submission form from bots using Cloudflare Turnstile.
 
@@ -32,7 +32,6 @@ It also includes a history of read articles (stored in the browser’s `localSto
 
 ### 1. Prerequisites
 
-- Node.js ≥ 24 (or use the `.node-version` file with `fnm`/`nvm`).
 - A Cloudflare account with Workers enabled.
 - (Optional) A Cloudflare KV namespace for caching.
 
