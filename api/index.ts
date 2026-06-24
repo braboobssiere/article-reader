@@ -6,14 +6,6 @@ import { parseHTML } from 'linkedom';
 import { isPrivateIp, isBlockedHostname, normalizeUrlHostname } from 'ssrf-guard';
 import sanitizeHtml from 'sanitize-html';
 
-// ------------------------------
-// Environment Bindings
-// ------------------------------
-interface Env {
-  TURNSTILE_ENABLED?: string;    // "true" to enable Turnstile on the homepage form
-  TURNSTILE_SITE_KEY?: string;
-  TURNSTILE_SECRET_KEY?: string;
-}
 
 interface ArticleData {
   title: string;
@@ -82,7 +74,7 @@ function validateUrl(rawUrl: string): URL {
   return url;
 }
 
-async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData> {
+async function fetchAndParseArticle(url: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   try {
@@ -165,14 +157,14 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
 // ------------------------------
 // Cache functions
 // ------------------------------
-async function getCachedArticle(url: string, env: Env): Promise<CachedArticle | null> {
+async function getCachedArticle(url: string): Promise<CachedArticle | null> {
   const now = Date.now();
   const mem = memoryCache.get(url);
   if (mem && mem.expires > now) return mem.data;
   return null;
 }
 
-async function setCachedArticle(url: string, data: ArticleData, env: Env): Promise<void> {
+async function setCachedArticle(url: string, data: ArticleData): Promise<void> {
   const now = Date.now();
   const cached: CachedArticle = { ...data, fetchedAt: now };
   memoryCache.set(url, { data: cached, expires: now + CACHE_TTL_SECONDS * 1000 });
@@ -756,15 +748,15 @@ app.post('/article', async (c) => {
   }
 
   // Check cache
-  const cached = await getCachedArticle(validUrl, c.env);
+  const cached = await getCachedArticle(validUrl);
   if (cached) {
     const { fetchedAt, ...data } = cached;
     return c.html(renderArticlePage(data, validUrl));
   }
 
   try {
-    const article = await fetchAndParseArticle(validUrl, c.env);
-    await setCachedArticle(validUrl, article, c.env);
+    const article = await fetchAndParseArticle(validUrl);
+    await setCachedArticle(validUrl, article);
     return c.html(renderArticlePage(article, validUrl));
   } catch (err) {
     console.error(err);
@@ -799,15 +791,15 @@ app.post('/api/extract', async (c) => {
     if (!ok) return c.text('CAPTCHA verification failed', 403);
   }
 
-  const cached = await getCachedArticle(validUrl, c.env);
+  const cached = await getCachedArticle(validUrl);
   if (cached) {
     const { fetchedAt, ...data } = cached;
     return c.json(data);
   }
 
   try {
-    const article = await fetchAndParseArticle(validUrl, c.env);
-    await setCachedArticle(validUrl, article, c.env);
+    const article = await fetchAndParseArticle(validUrl);
+    await setCachedArticle(validUrl, article);
     return c.json(article);
   } catch (err) {
     console.error(err);
