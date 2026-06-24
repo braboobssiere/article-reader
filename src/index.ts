@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 import { isPrivateIp, isBlockedHostname, normalizeUrlHostname } from 'ssrf-guard';
+import sanitizeHtml from 'sanitize-html';
 
 // ------------------------------
 // Environment Bindings
@@ -39,42 +40,6 @@ function computeReadingTime(html: string): number {
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const wordCount = text.split(/\s+/).length;
   return Math.ceil((wordCount / 200) * 60);
-}
-
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<(script|iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/\s+href\s*=\s*["']\s*javascript:[^"']*["']/gi, '')
-    .replace(/\s+srcdoc\s*=\s*["'][^"']*["']/gi, '');
-}
-
-function fallbackExtract(html: string): { title: string; content: string } {
-  const { document } = parseHTML(`<body>${html}</body>`);
-  const selectors = [
-    'article',
-    '[role="article"]',
-    '.post-content',
-    '.entry-content',
-    '.article-content',
-    '.content',
-    '.main-content',
-    '#content',
-    '.post',
-    '.blog-post'
-  ];
-  for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (el && el.innerHTML.trim().length > 100) {
-      const title = document.querySelector('title')?.textContent || 'Untitled';
-      return { title, content: el.innerHTML };
-    }
-  }
-  const body = document.body;
-  const toRemove = body.querySelectorAll('nav, header, footer, aside, .sidebar, .advertisement, .ads, .popup, .modal');
-  toRemove.forEach(el => el.remove());
-  const title = document.querySelector('title')?.textContent || 'Untitled';
-  return { title, content: body.innerHTML };
 }
 
 function extractImageFromHtml(html: string, doc: Document): string | null {
@@ -130,6 +95,7 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
     const html = await response.text();
     const { document } = parseHTML(html);
 
+    // Metadata extraction (lightweight)
     let author: string | null = null;
     let published: string | null = null;
 
@@ -141,32 +107,36 @@ async function fetchAndParseArticle(url: string, env: Env): Promise<ArticleData>
       document.querySelector('meta[name="publishdate"]')?.getAttribute('content');
     if (dateMeta) published = dateMeta;
 
-    // Extract the image before Readability mutates the document.
     const image = extractImageFromHtml(html, document);
 
+    // Extract with Readability (no fallback)
     const reader = new Readability(document);
-    let parsed = reader.parse();
-    let content = parsed?.content || '';
+    const parsed = reader.parse();
 
-    if (!content || content.trim().length < 50) {
-      const fallback = fallbackExtract(html);
-      content = fallback.content;
-      if (!parsed?.title) {
-        parsed = { title: fallback.title, content: fallback.content, byline: null };
-      }
-    }
-
-    if (!content || content.trim().length < 10) {
+    if (!parsed || !parsed.content || parsed.content.trim().length < 50) {
       throw new Error('Could not extract article content');
     }
 
-    const sanitisedContent = sanitizeHtml(content);
-    const ttr = computeReadingTime(sanitisedContent);
+    // Sanitize with sanitize-html (allow only safe tags and attributes)
+    const sanitizedContent = sanitizeHtml(parsed.content, {
+      allowedTags: ['p', 'br', 'strong', 'em', 'i', 'b', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                    'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img', 'span', 'div', 'section',
+                    'article', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+      allowedAttributes: {
+        a: ['href', 'target'],
+        img: ['src', 'alt', 'width', 'height'],
+        '*': ['class', 'style']  // optional, but safe
+      },
+      allowedSchemes: ['http', 'https', 'mailto'],
+      allowedSchemesAppliedToAttributes: ['href', 'src'],
+    });
+
+    const ttr = computeReadingTime(sanitizedContent);
 
     return {
-      title: parsed?.title || 'Untitled',
-      content: sanitisedContent || content,
-      author: author || parsed?.byline || null,
+      title: parsed.title || 'Untitled',
+      content: sanitizedContent,
+      author: author || parsed.byline || null,
       published: published || null,
       image,
       ttr,
