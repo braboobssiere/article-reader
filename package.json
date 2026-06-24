@@ -1,10 +1,10 @@
 {
-  "name": "private-article-reader-worker",
+  "name": "article-reader",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "vercel dev",
+    "deploy": "vercel deploy",
     "update": "npx npm-check-updates -u && npm install"
   },
   "dependencies": {
@@ -15,7 +15,6 @@
     "ssrf-guard": "^0.4.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260624.1",
-    "wrangler": "^4.104.0"
+    "vercel": "^44.0.0"
   }
 }

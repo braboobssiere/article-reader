@@ -3,12 +3,11 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "strict": true,
-    "types": ["@cloudflare/workers-types"],
     "skipLibCheck": true,
     "outDir": "./dist"
   },
-  "include": ["src"],
+  "include": ["src", "api"],
   "exclude": ["node_modules"]
 }
