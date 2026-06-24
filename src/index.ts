@@ -11,7 +11,6 @@ interface Env {
   TURNSTILE_ENABLED?: string;    // "true" to enable Turnstile on the homepage form
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
-  ARTICLE_CACHE?: KVNamespace;
 }
 
 interface ArticleData {
@@ -168,13 +167,6 @@ async function getCachedArticle(url: string, env: Env): Promise<CachedArticle | 
   const now = Date.now();
   const mem = memoryCache.get(url);
   if (mem && mem.expires > now) return mem.data;
-  if (env.ARTICLE_CACHE) {
-    const kvData = await env.ARTICLE_CACHE.get(url, 'json') as CachedArticle | null;
-    if (kvData && kvData.fetchedAt + CACHE_TTL_SECONDS * 1000 > now) {
-      memoryCache.set(url, { data: kvData, expires: now + CACHE_TTL_SECONDS * 1000 });
-      return kvData;
-    }
-  }
   return null;
 }
 
@@ -182,9 +174,6 @@ async function setCachedArticle(url: string, data: ArticleData, env: Env): Promi
   const now = Date.now();
   const cached: CachedArticle = { ...data, fetchedAt: now };
   memoryCache.set(url, { data: cached, expires: now + CACHE_TTL_SECONDS * 1000 });
-  if (env.ARTICLE_CACHE) {
-    await env.ARTICLE_CACHE.put(url, JSON.stringify(cached), { expirationTtl: CACHE_TTL_SECONDS });
-  }
 }
 
 // ------------------------------
@@ -224,7 +213,7 @@ function renderErrorPage(message: string): string {
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
       <div class="flex gap-6">
         <a href="/#how-it-works" class="hover:underline">How it works ?</a>
-        <a href="https://github.com/yourusername/private-article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
+        <a href="https://github.com/yourusername/article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
       </div>
     </nav>
     <main class="my-8">
@@ -401,7 +390,7 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
       <div class="flex gap-6">
         <a href="/#how-it-works" class="hover:underline">How it works ?</a>
-        <a href="https://github.com/yourusername/private-article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
+        <a href="https://github.com/yourusername/article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
       </div>
     </nav>
     <main class="my-8">
@@ -597,7 +586,7 @@ app.get('/', (c) => {
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
       <div class="flex gap-6">
         <a href="/#how-it-works" class="hover:underline">How it works ?</a>
-        <a href="https://github.com/yourusername/private-article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
+        <a href="https://github.com/yourusername/article-reader" target="_blank" rel="noopener noreferrer" class="hover:underline">Source</a>
       </div>
     </nav>
     <main class="my-8 space-y-8">
@@ -757,7 +746,7 @@ app.post('/article', async (c) => {
       return c.html(renderErrorPage('CAPTCHA token missing. Please refresh and try again.'), 400);
     }
 
-    const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || '';
+    const ip = c.req.header('x-forwarded-for') || '';
     const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
     if (!ok) {
       return c.html(renderErrorPage('CAPTCHA verification failed. Please try again.'), 403);
@@ -803,7 +792,7 @@ app.post('/api/extract', async (c) => {
     }
 
     if (!turnstileToken) return c.text('Turnstile token missing', 400);
-    const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || '';
+    const ip = c.req.header('x-forwarded-for') || '';
     const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
     if (!ok) return c.text('CAPTCHA verification failed', 403);
   }
@@ -824,4 +813,7 @@ app.post('/api/extract', async (c) => {
   }
 });
 
-export default app;
+export { app };
+
+
+
