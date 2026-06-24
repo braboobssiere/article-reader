@@ -556,7 +556,7 @@ function escapeHtml(str: string): string {
 // ------------------------------
 // Hono app
 // ------------------------------
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono();
 
 app.use('*', async (c, next) => {
   await next();
@@ -567,8 +567,8 @@ app.use('*', async (c, next) => {
 
 // Homepage with form and history
 app.get('/', (c) => {
-  const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
-  const siteKey = c.env.TURNSTILE_SITE_KEY;
+  const turnstileEnabled = process.env.TURNSTILE_ENABLED === 'true';
+  const siteKey = process.env.TURNSTILE_SITE_KEY;
   if (turnstileEnabled && !siteKey) {
     return c.text('Turnstile enabled but TURNSTILE_SITE_KEY missing', 500);
   }
@@ -731,9 +731,9 @@ app.post('/article', async (c) => {
     return c.html(renderErrorPage(msg), 400);
   }
 
-  const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
+  const turnstileEnabled = process.env.TURNSTILE_ENABLED === 'true';
   if (turnstileEnabled) {
-    if (!c.env.TURNSTILE_SECRET_KEY) {
+    if (!process.env.TURNSTILE_SECRET_KEY) {
       return c.html(renderErrorPage('Server configuration error: Turnstile secret missing'), 500);
     }
 
@@ -749,7 +749,7 @@ app.post('/article', async (c) => {
     }
 
     const ip = c.req.header('x-forwarded-for') || '';
-    const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
+    const ok = await verifyTurnstile(turnstileToken, ip, process.env.TURNSTILE_SECRET_KEY);
     if (!ok) {
       return c.html(renderErrorPage('CAPTCHA verification failed. Please try again.'), 403);
     }
@@ -787,15 +787,15 @@ app.post('/api/extract', async (c) => {
     return c.text('Invalid URL', 400);
   }
 
-  const turnstileEnabled = c.env.TURNSTILE_ENABLED === 'true';
+  const turnstileEnabled = process.env.TURNSTILE_ENABLED === 'true';
   if (turnstileEnabled) {
-    if (!c.env.TURNSTILE_SECRET_KEY) {
+    if (!process.env.TURNSTILE_SECRET_KEY) {
       return c.text('Turnstile enabled but TURNSTILE_SECRET_KEY missing', 500);
     }
 
     if (!turnstileToken) return c.text('Turnstile token missing', 400);
     const ip = c.req.header('x-forwarded-for') || '';
-    const ok = await verifyTurnstile(turnstileToken, ip, c.env.TURNSTILE_SECRET_KEY);
+    const ok = await verifyTurnstile(turnstileToken, ip, process.env.TURNSTILE_SECRET_KEY);
     if (!ok) return c.text('CAPTCHA verification failed', 403);
   }
 
