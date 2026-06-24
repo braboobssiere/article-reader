@@ -341,6 +341,38 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
       opacity: 0.7;
       margin-right: 0.2rem;
     }
+
+    /* Mobile adjustments: full width, no card styling */
+    @media (max-width: 768px) {
+      .max-w-5xl {
+        max-width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      .bg-white.rounded-lg.shadow.p-6 {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 0.5rem !important;
+      }
+      .reader-toolbar {
+        border-radius: 0.5rem;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
+        padding: 0.5rem;
+        background: rgba(255,255,255,0.8);
+      }
+      .reader-toolbar .group-label {
+        font-size: 0.7rem;
+      }
+      .reader-toolbar button {
+        font-size: 0.8rem;
+        padding: 0.15rem 0.5rem;
+      }
+      /* The prose width is still controlled by the CSS variable */
+      .prose {
+        max-width: var(--prose-max-width);
+      }
+    }
   </style>
 </head>
 <body>
@@ -391,14 +423,12 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
     (function() {
       const STORAGE_KEY = 'readerPreferences';
 
-      // Defaults
       const defaults = {
         theme: 'sepia',
         fontSize: 18,
         width: 'medium'
       };
 
-      // Load preferences from localStorage
       function loadPreferences() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
@@ -414,7 +444,6 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
       }
 
-      // Apply theme
       function applyTheme(theme) {
         const root = document.documentElement;
         let bg, text;
@@ -427,32 +456,28 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
             bg = '#1e1e1e';
             text = '#d4d4d4';
             break;
-          default: // sepia
+          default:
             bg = '#fbf4e8';
             text = '#5b4637';
         }
         root.style.setProperty('--bg-color', bg);
         root.style.setProperty('--text-color', text);
 
-        // Update active button
         document.querySelectorAll('[data-theme]').forEach(btn => {
           btn.classList.toggle('active', btn.dataset.theme === theme);
         });
       }
 
-      // Apply font size
       function applyFontSize(size) {
         document.documentElement.style.setProperty('--font-size-base', size + 'px');
-        // Update displayed size (optional)
       }
 
-      // Apply width
       function applyWidth(width) {
         let maxWidth;
         switch (width) {
           case 'narrow': maxWidth = '50ch'; break;
           case 'wide': maxWidth = '90ch'; break;
-          default: maxWidth = '65ch'; // medium
+          default: maxWidth = '65ch';
         }
         document.documentElement.style.setProperty('--prose-max-width', maxWidth);
 
@@ -461,15 +486,13 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
         });
       }
 
-      // Initialize
       const prefs = loadPreferences();
       applyTheme(prefs.theme);
       applyFontSize(prefs.fontSize);
       applyWidth(prefs.width);
 
-      // Event listeners for theme buttons
       document.querySelectorAll('[data-theme]').forEach(btn => {
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', function() {
           const theme = this.dataset.theme;
           prefs.theme = theme;
           applyTheme(theme);
@@ -477,7 +500,6 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
         });
       });
 
-      // Font size buttons
       document.getElementById('font-decrease').addEventListener('click', function() {
         prefs.fontSize = Math.max(12, prefs.fontSize - 2);
         applyFontSize(prefs.fontSize);
@@ -489,7 +511,6 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
         savePreferences(prefs);
       });
 
-      // Width buttons
       document.querySelectorAll('[data-width]').forEach(btn => {
         btn.addEventListener('click', function() {
           const width = this.dataset.width;
@@ -498,13 +519,6 @@ function renderArticlePage(article: ArticleData, sourceUrl: string): string {
           savePreferences(prefs);
         });
       });
-
-      // Also apply theme to the white card background - adjust the container
-      // We already set inline styles on the card div to use CSS variables.
-      // The card's background-color and color are set via inline style with var(--bg-color) etc.
-      // The toolbar also uses the same colors.
-      // The toolbar background we set to rgba(255,255,255,0.6) - we could also make it adapt.
-      // But it's fine.
     })();
   </script>
 </body>
