@@ -1,5 +1,6 @@
-import { app } from '../src/app.ts';
-
-export default async function handler(request: Request) {
-  return app.fetch(request);
-}
+import { handle } from 'hono/vercel';
+import { app } from '../src/app';
+ 
+export const config = { runtime: 'edge' };
+ 
+export default handle(app);
