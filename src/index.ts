@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
+import { guard } from 'ssrf-guard';
 
 // ------------------------------
 // Environment Bindings
@@ -138,10 +139,29 @@ function isBlockedHost(hostname: string): boolean {
 }
 
 function validateUrl(rawUrl: string): URL {
-  const url = new URL(rawUrl);
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Only http and https URLs are allowed');
+  // Try ssrf-guard first
+  let safe = false;
+  try {
+    safe = guard(rawUrl);
+  } catch {
+    // ssrf-guard may throw on invalid URLs; fallback to manual
+    safe = false;
   }
+
+  // If ssrf-guard says unsafe, fallback to manual check
+  if (!safe) {
+    const url = new URL(rawUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('Only http and https URLs are allowed');
+    }
+    if (isBlockedHost(url.hostname)) {
+      throw new Error('Blocked host');
+    }
+    return url;
+  }
+
+  // ssrf-guard passed, but we still do manual extra checks
+  const url = new URL(rawUrl);
   if (isBlockedHost(url.hostname)) {
     throw new Error('Blocked host');
   }
