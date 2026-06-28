@@ -58,7 +58,7 @@ async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
 async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> {
   if (!CF_KV_ENABLED) return;
   try {
-    const url = kvUrl(key) + '?expiration_ttl=86400'; // 1 day
+    const url = kvUrl(key) + '?expirationTtl=86400'; // 1 day
     await fetch(url, {
       method: 'PUT',
       headers: {
