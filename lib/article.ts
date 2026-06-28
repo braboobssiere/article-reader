@@ -8,15 +8,11 @@ export interface ArticleData {
   author: string | null;
   published: string | null;
   image: string | null;
-  ttr: number; // reading time in seconds
+  ttr: number;
 }
 
-// ── In-process cache ───────────────────────────────────────────────────────
-// Works per serverless function instance (same behaviour as the original
-// CF Worker without KV). For a shared cache across instances, wire in
-// Vercel KV / Upstash Redis and replace getCached / setCached.
 const cache = new Map<string, { data: ArticleData; expires: number }>();
-const CACHE_TTL_MS = 3_600_000; // 1 hour
+const CACHE_TTL_MS = 3_600_000;
 
 export function getCached(url: string): ArticleData | null {
   const entry = cache.get(url);
@@ -29,7 +25,6 @@ export function setCached(url: string, data: ArticleData): void {
   cache.set(url, { data, expires: Date.now() + CACHE_TTL_MS });
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 function computeReadingTime(html: string): number {
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   return Math.ceil((text.split(/\s+/).length / 200) * 60);
@@ -51,7 +46,6 @@ function extractImage(rawHtml: string, doc: Document): string | null {
   return m?.[2] ?? m?.[1] ?? null;
 }
 
-// ── Main extraction ────────────────────────────────────────────────────────
 export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
@@ -66,14 +60,7 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const rawHtml = await response.text();
-
-    // Strip heavy tags before DOM parsing
-    const cleanHtml = rawHtml
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
-
-    const { document } = parseHTML(cleanHtml);
+    const { document } = parseHTML(rawHtml);
 
     const author =
       document.querySelector('meta[name="author"]')?.getAttribute('content') ||
@@ -85,9 +72,7 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       document.querySelector('meta[name="publishdate"]')?.getAttribute('content') ||
       null;
 
-    // Use original rawHtml for og:image (stripped version loses meta tags too)
-    const { document: fullDoc } = parseHTML(rawHtml);
-    const image = extractImage(rawHtml, fullDoc);
+    const image = extractImage(rawHtml, document);
 
     const reader = new Readability(document);
     const parsed = reader.parse();
@@ -96,25 +81,7 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       throw new Error('Could not extract article content');
     }
 
-    // Remove event handlers and javascript: hrefs; allow all other tags/attrs
-    const content = sanitizeHtml(parsed.content, {
-      allowedTags: false as unknown as string[],
-      allowedAttributes: false as unknown as Record<string, string[]>,
-      transformTags: {
-        '*': (tagName, attribs) => {
-          const safe: Record<string, string> = {};
-          for (const [k, v] of Object.entries(attribs)) {
-            if (
-              !k.startsWith('on') &&
-              !(k === 'href' && v?.toLowerCase().startsWith('javascript:'))
-            ) {
-              safe[k] = v;
-            }
-          }
-          return { tagName, attribs: safe };
-        },
-      },
-    });
+    const content = sanitizeHtml(parsed.content);
 
     return {
       title: parsed.title || 'Untitled',
