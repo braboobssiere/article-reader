@@ -38,13 +38,15 @@ function computeReadingTime(html: string): number {
   return Math.ceil((text.split(/\s+/).length / 200) * 60);
 }
 
-export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
+export async function fetchAndParseArticle(url: string, userAgent?: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   try {
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PrivateArticleReader/1.0)' },
+      headers: {
+        'User-Agent': userAgent || 'Mozilla/5.0 (compatible; PrivateArticleReader/1.0)',
+      },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);

@@ -17,12 +17,14 @@ function readHistory(): HistoryEntry[] {
 export default function ArticleForm({
   turnstileEnabled,
   siteKey,
+  initialUrl,
 }: {
   turnstileEnabled: boolean;
   siteKey: string;
+  initialUrl?: string;
 }) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState(initialUrl ?? '');
 
   useEffect(() => {
     setHistory(readHistory());
@@ -46,7 +48,7 @@ export default function ArticleForm({
       <div className="bg-white rounded-lg shadow p-6">
         <form
           action="/article"
-          method={turnstileEnabled ? 'POST' : 'GET'}
+          method="post"
           onSubmit={handleSubmit}
           className="space-y-3"
         >
