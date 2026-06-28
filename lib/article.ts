@@ -1,6 +1,10 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 import sanitizeHtml from 'sanitize-html';
+import metascraper from 'metascraper';
+import metascraperAuthor from 'metascraper-author';
+import metascraperDate from 'metascraper-date';
+import metascraperImage from 'metascraper-image';
 
 export interface ArticleData {
   title: string;
@@ -10,6 +14,12 @@ export interface ArticleData {
   image: string | null;
   ttr: number;
 }
+
+const scraper = metascraper([
+  metascraperAuthor(),
+  metascraperDate(),
+  metascraperImage(),
+]);
 
 const cache = new Map<string, { data: ArticleData; expires: number }>();
 const CACHE_TTL_MS = 3_600_000;
@@ -30,22 +40,6 @@ function computeReadingTime(html: string): number {
   return Math.ceil((text.split(/\s+/).length / 200) * 60);
 }
 
-function extractImage(rawHtml: string, doc: Document): string | null {
-  const metaSelectors = [
-    'meta[property="og:image"]',
-    'meta[name="twitter:image"]',
-    'meta[property="og:image:secure_url"]',
-  ];
-  for (const sel of metaSelectors) {
-    const content = doc.querySelector(sel)?.getAttribute('content');
-    if (content?.startsWith('http')) return content;
-  }
-  const m =
-    rawHtml.match(/<img\b[^>]*\bsrc\s*=\s*(["'])(https?:\/\/[^"'\s>]+)\1/i) ||
-    rawHtml.match(/<img\b[^>]*\bsrc\s*=\s*(https?:\/\/[^\s>]+)/i);
-  return m?.[2] ?? m?.[1] ?? null;
-}
-
 export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
@@ -60,19 +54,11 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const rawHtml = await response.text();
-    const { document } = parseHTML(rawHtml);
 
-    const author =
-      document.querySelector('meta[name="author"]')?.getAttribute('content') ||
-      document.querySelector('meta[property="article:author"]')?.getAttribute('content') ||
-      null;
-
-    const published =
-      document.querySelector('meta[property="article:published_time"]')?.getAttribute('content') ||
-      document.querySelector('meta[name="publishdate"]')?.getAttribute('content') ||
-      null;
-
-    const image = extractImage(rawHtml, document);
+    const [meta, { document }] = await Promise.all([
+      scraper({ html: rawHtml, url }),
+      Promise.resolve(parseHTML(rawHtml)),
+    ]);
 
     const reader = new Readability(document);
     const parsed = reader.parse();
@@ -81,14 +67,20 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       throw new Error('Could not extract article content');
     }
 
-    const content = sanitizeHtml(parsed.content);
+    const content = sanitizeHtml(parsed.content, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        img: ['src', 'alt', 'width', 'height'],
+      },
+    });
 
     return {
       title: parsed.title || 'Untitled',
       content,
-      author: author || parsed.byline || null,
-      published: published || null,
-      image,
+      author: meta.author || parsed.byline || null,
+      published: meta.date || null,
+      image: meta.image || null,
       ttr: computeReadingTime(content),
     };
   } catch (err) {
