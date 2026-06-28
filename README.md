@@ -1,141 +1,121 @@
-# Private Article Reader — Vercel Edition
+# 📰 Private Article Reader
 
-Fetches and extracts article content from any public URL, stripping trackers, scripts, and clutter for a clean, distraction-free reading experience. Built with **Next.js App Router** for Vercel.
+Paste any article link. Get a clean, ad-free page to read it — no clutter, no distractions, no tracking.
 
----
-
-## ✨ Features
-
-- **Article extraction** — Mozilla's `@mozilla/readability` extracts the main content.
-- **Clean reader view** — configurable theme (sepia / light / dark), font size, and reading width. Preferences are saved to `localStorage`.
-- **Shareable links** — `GET /article?url=…` lets you bookmark or share any article.
-- **History** — last 100 URLs saved in `localStorage` for quick re-access.
-- **Mobile-optimised** — full-width on small screens with a compact toolbar.
-- **SSRF protection** — `ssrf-guard` blocks private IPs, localhost, and metadata endpoints.
-- **Optional Cloudflare KV cache** — cache articles for **1 day** across serverless instances. Falls back to in‑memory cache if Cloudflare KV is unavailable or disabled.
-- **Optional Turnstile** — protect the form from bots with Cloudflare Turnstile.
+Think of it as your own personal "Reader Mode" that works on any website, accessible from any device via a link you control.
 
 ---
 
-## 🗺 Routes
+## What it does
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Homepage with URL form and history |
-| `POST` | `/article` | Submit URL form (Turnstile-verified if enabled) |
-| `GET` | `/article?url=…` | Direct / shareable article link (no Turnstile) |
-| `POST` | `/api/extract` | JSON API — returns `ArticleData` |
-
-### `ArticleData` shape
-
-```json
-{
-  "title": "string",
-  "content": "<html>",
-  "author": "string | null",
-  "published": "ISO8601 | null",
-  "image": "url | null",
-  "ttr": 120
-}
-```
-
-`ttr` is estimated reading time in **seconds**.
+You give it a URL. It fetches the article, strips out the ads and noise, and shows you just the words and images that matter. You can customise how it looks, bookmark articles, and even share clean links with friends.
 
 ---
 
-## 🚀 Deploy to Vercel
+## Features
 
-### 1 — Clone & install
+- **Clean reading view** — removes ads, banners, sidebars, and cookie pop-ups from any article.
+- **Themes** — switch between Sepia (warm), Light, and Dark. Your preference is remembered.
+- **Font & width controls** — make the text bigger, smaller, wider, or narrower to suit you.
+- **Shareable links** — every article gets a clean link you can bookmark or send to someone (e.g. `yoursite.com/article?url=…`).
+- **History** — your last 100 articles are saved so you can jump back quickly.
+- **Mobile-friendly** — works well on phones and tablets.
+- **Safe by design** — the app can only fetch public web pages. It cannot be tricked into accessing your private network or server internals.
+
+---
+
+## Getting it running
+
+You'll need [Node.js](https://nodejs.org) installed and a free [Vercel](https://vercel.com) account.
+
+### Step 1 — Get the code
 
 ```bash
 git clone https://github.com/braboobssiere/article-reader.git
-cd private-article-reader
+cd article-reader
 npm install
 ```
 
-### 2 — Environment variables
+### Step 2 — Set up your config file
 
 ```bash
 cp .env.example .env.local
-# Edit .env.local – Turnstile and Cloudflare KV are optional
 ```
 
-### 3 — Local dev
+Open `.env.local` in any text editor. Most of the settings are optional — see the table below.
+
+### Step 3 — Try it locally
 
 ```bash
 npm run dev
-# → http://localhost:3000
 ```
 
-### 4 — Deploy
+Then open `http://localhost:3000` in your browser. Paste an article URL and hit read.
+
+### Step 4 — Put it on the internet (optional)
 
 ```bash
 npx vercel
 ```
 
-Or push to a GitHub repo and import it at <https://vercel.com/new> — Vercel auto-detects Next.js.
+Follow the prompts. Vercel will give you a public URL. That's it — your reader is live.
+
+> **Alternative:** Push your code to GitHub and import the repo at [vercel.com/new](https://vercel.com/new). Vercel detects everything automatically.
 
 ---
 
-## ⚙️ Environment variables
+## Settings (environment variables)
 
-Set these in **Vercel → Project → Settings → Environment Variables** (or `.env.local` for dev):
+These go in your `.env.local` file for local development, or in **Vercel → Project → Settings → Environment Variables** once deployed.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TURNSTILE_ENABLED` | `false` | Set to `true` to enable bot protection |
-| `TURNSTILE_SITE_KEY` | — | Turnstile site key (public) |
-| `TURNSTILE_SECRET_KEY` | — | Turnstile secret key (never expose client-side) |
-| `CLOUDFLARE_KV_ENABLED` | `false` | Set to `true` to enable Cloudflare KV caching |
-| `CLOUDFLARE_ACCOUNT_ID` | — | Your Cloudflare account ID (public) |
-| `CLOUDFLARE_KV_NAMESPACE_ID` | — | Your KV namespace ID (public) |
-| `CLOUDFLARE_API_TOKEN` | — | Cloudflare API token with **KV Storage Write** permission (🔒 secret) |
+Most of these are **optional**. The app works fine without them.
 
-> **Note**: `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_KV_NAMESPACE_ID` are not secrets, but `CLOUDFLARE_API_TOKEN` must be encrypted.
+| Setting | What it does | Do I need it? |
+|---|---|---|
+| `TURNSTILE_ENABLED` | Adds a CAPTCHA to stop bots from abusing your reader | Only if it's public-facing and you're worried about abuse |
+| `TURNSTILE_SITE_KEY` | Public key for the CAPTCHA (from [Cloudflare Turnstile](https://dash.cloudflare.com)) | Only if you enabled Turnstile |
+| `TURNSTILE_SECRET_KEY` | Secret key for the CAPTCHA — keep this private | Only if you enabled Turnstile |
+| `CLOUDFLARE_KV_ENABLED` | Saves fetched articles in the cloud so repeat loads are instant | Nice to have, not required |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID | Only if you enabled KV |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | The ID of your article cache storage bucket | Only if you enabled KV |
+| `CLOUDFLARE_API_TOKEN` | Secret token that lets the app write to the cache — keep this private | Only if you enabled KV |
 
----
-
-## 🗃 Caching
-
-The app now supports **optional Cloudflare KV** for persistent caching across all serverless instances.
-
-- When `CLOUDFLARE_KV_ENABLED=true`, articles are stored in Cloudflare KV with a **TTL of 1 day** (86,400 seconds).
-- If Cloudflare KV is **disabled** or **unavailable**, the app falls back to an in‑memory `Map` cache (1‑hour TTL, per instance).
-- Cache functions are `async`, so they integrate seamlessly with Next.js serverless functions.
-
-To configure Cloudflare KV, you need:
-1. A Cloudflare account.
-2. A KV namespace (created in the Cloudflare dashboard under Workers & Pages → KV).
-3. An API token with `Workers KV Storage` write permissions.
-4. The environment variables listed above.
-
-### Setting up Cloudflare KV
-
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → KV.
-2. Create a new namespace (e.g., `article-cache`). Copy its **Namespace ID**.
-3. Under **My Profile** → **API Tokens**, create a token with **Workers KV Storage → Write** permission.
-4. Copy your **Account ID** from the Workers & Pages overview.
-5. Add all three values to your environment variables.
-
-If you don't want to use Cloudflare KV, leave `CLOUDFLARE_KV_ENABLED=false` – the app will keep using the in‑memory cache.
+> **Tip:** If you just want to try the app, leave all of these blank. It will still work — articles just won't be cached between restarts.
 
 ---
 
-## 🔒 Security
+## Optional: Speed up repeat visits with caching
 
-- **SSRF** — `ssrf-guard` blocks private IPs, RFC-1918 ranges, loopback, link-local, and cloud metadata endpoints.
-- **XSS** — `sanitize-html` strips all `on*` event handlers and `javascript:` hrefs from extracted content.
-- **Security headers** — `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` set globally in `vercel.json`.
+Without caching, every time someone opens an article, the app re-fetches it from the original site. That's fine for personal use.
+
+If you want faster repeat loads (or you're sharing the reader with others), you can turn on Cloudflare KV caching. Articles will be stored for 24 hours so the second visit is nearly instant.
+
+**How to set it up:**
+
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages → KV**.
+2. Create a new namespace — call it anything, e.g. `article-cache`. Copy the **Namespace ID**.
+3. Go to **My Profile → API Tokens** → create a token with **Workers KV Storage → Write** permission. Copy the token.
+4. Copy your **Account ID** from the Workers & Pages overview page.
+5. Add all three values to your environment variables and set `CLOUDFLARE_KV_ENABLED=true`.
 
 ---
 
-## 📦 Stack
+## Privacy & safety notes
 
-| What | Package |
-|------|---------|
-| Framework | Next.js 15 (App Router) |
-| Parsing | `linkedom` + `@mozilla/readability` |
-| Sanitisation | `sanitize-html` |
-| SSRF protection | `ssrf-guard` |
-| Cache | Optional Cloudflare KV (REST API) + in‑memory fallback |
-| Styling | Tailwind CSS CDN |
+- The app only fetches **public URLs** — it cannot access anything that requires a login.
+- It blocks attempts to fetch internal network addresses (like `localhost` or private IP ranges), so it's safe to host for others.
+- Extracted article content is sanitised to remove anything that could run malicious code.
+- Security headers are set automatically when deployed to Vercel.
+
+---
+
+## Tech used (for the curious)
+
+| Piece | What it is |
+|---|---|
+| Next.js 15 | The web framework that runs everything |
+| @mozilla/readability | Mozilla's article extractor (same one Firefox uses) |
+| sanitize-html | Removes any dangerous code from extracted content |
+| ssrf-guard | Blocks requests to internal/private addresses |
+| Cloudflare KV | Optional cloud storage for caching articles |
+| Tailwind CSS | Handles the styling |
