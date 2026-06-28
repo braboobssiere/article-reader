@@ -1,6 +1,13 @@
 import ArticleForm from './article-form';
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const sp = await searchParams;
+  const initialUrl = typeof sp.url === 'string' ? sp.url : undefined;
+
   const turnstileEnabled = process.env.TURNSTILE_ENABLED === 'true';
   const siteKey = process.env.TURNSTILE_SITE_KEY ?? '';
 
@@ -25,7 +32,7 @@ export default function HomePage() {
         </nav>
 
         <main className="my-8 space-y-8">
-          <ArticleForm turnstileEnabled={turnstileEnabled} siteKey={siteKey} />
+          <ArticleForm turnstileEnabled={turnstileEnabled} siteKey={siteKey} initialUrl={initialUrl} />
 
           <div id="how-it-works" className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold mb-4">How it works ?</h2>
