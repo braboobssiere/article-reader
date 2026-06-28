@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'Private Article Reader',
@@ -13,7 +14,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="https://cdn.tailwindcss.com" />
       </head>
-      <body className="bg-gray-100">{children}</body>
+      <body className="bg-gray-100">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
