@@ -70,6 +70,8 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
     .prose p { margin-bottom: 1.2em; }
     .prose img { margin: 2em auto; border-radius: 0.5rem; }
     .prose h2, .prose h3 { font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; }
+    .prose a { color: LinkText; text-decoration: underline; }
+    .prose a:hover { text-decoration: underline; }
 
     .reader-toolbar {
       display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center;
