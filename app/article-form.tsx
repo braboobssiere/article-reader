@@ -42,31 +42,41 @@ export default function ArticleForm({
 
   return (
     <>
+      {/* Form section */}
       <div className="bg-white rounded-lg shadow p-6">
         <form
           action="/article"
           method={turnstileEnabled ? 'POST' : 'GET'}
-          className="flex flex-row gap-2"
           onSubmit={handleSubmit}
+          className="space-y-3"
         >
-          <input
-            type="url"
-            name="url"
-            required
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            placeholder="Enter article URL (e.g. https://example.com/news)"
-            className="flex-1 border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
-          />
+          {/* Row 1: input + small button */}
+          <div className="flex flex-row gap-2">
+            <input
+              type="url"
+              name="url"
+              required
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="Enter article URL (e.g. https://example.com/news)"
+              className="flex-1 min-w-0 border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
+            />
+            <button
+              type="submit"
+              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition whitespace-nowrap text-sm"
+            >
+              Load Article
+            </button>
+          </div>
+
+          {/* Row 2: Cloudflare Turnstile (only when enabled) */}
           {turnstileEnabled && (
             <div className="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
           )}
-          <button type="submit" className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition">
-            Load Article
-          </button>
         </form>
       </div>
 
+      {/* History section (unchanged) */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between gap-4 mb-4">
           <h2 className="text-lg font-bold">History</h2>
