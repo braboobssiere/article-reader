@@ -42,12 +42,13 @@ export default async function HomePage({
                 'Our server fetches the page and strips trackers and scripts.',
                 'We display it in an easy‑to‑read format.',
               ].map((step, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
+                <div key={i} className="flex items-start gap-2">
+                  <span className="bg-black text-white rounded-full w-6 h-6 flex-shrink-0 flex items-center justify-center text-sm font-bold">
                     {i + 1}
                   </span>
-                  <span>{step}</span>
+                  <span className="pt-0.5">{step}</span>
                 </div>
+
               ))}
             </div>
           </div>
