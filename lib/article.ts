@@ -4,6 +4,7 @@ import sanitizeHtml from 'sanitize-html';
 import metascraper from 'metascraper';
 import metascraperAuthor from 'metascraper-author';
 import metascraperImage from 'metascraper-image';
+import metascraperDate from 'metascraper-date';
 
 export interface ArticleData {
   title: string;
@@ -17,6 +18,7 @@ export interface ArticleData {
 const scraper = metascraper([
   metascraperAuthor(),
   metascraperImage(),
+  metascraperDate(),
 ]);
 
 const cache = new Map<string, { data: ArticleData; expires: number }>();
@@ -60,11 +62,7 @@ export async function fetchAndParseArticle(url: string, userAgent?: string): Pro
       Promise.resolve(parseHTML(rawHtml)),
     ]);
 
-    const published =
-      document.querySelector('meta[property="article:published_time"]')?.getAttribute('content') ||
-      document.querySelector('meta[name="publishdate"]')?.getAttribute('content') ||
-      null;
-
+    const published = meta.date || null;
     const reader = new Readability(document);
     const parsed = reader.parse();
 
@@ -84,7 +82,7 @@ export async function fetchAndParseArticle(url: string, userAgent?: string): Pro
       title: parsed.title || 'Untitled',
       content,
       author: meta.author || parsed.byline || null,
-      published,
+      published: meta.date || null,
       image: meta.image || null,
       ttr: computeReadingTime(content),
     };
