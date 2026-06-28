@@ -6,7 +6,7 @@ function err(message: string, status: number) {
   return new Response(message, { status });
 }
 
-export async function POST(req: Request) {
+async function extractArticle(req: Request) {
   let body: { url?: string; turnstileToken?: string };
   try {
     body = await req.json();
@@ -42,8 +42,10 @@ export async function POST(req: Request) {
   const cached = getCached(validUrl);
   if (cached) return Response.json(cached);
 
+  const userAgent = req.headers.get('user-agent') ?? undefined;
+
   try {
-    const article = await fetchAndParseArticle(validUrl);
+    const article = await fetchAndParseArticle(validUrl, userAgent);
     setCached(validUrl, article);
     return Response.json(article);
   } catch (e) {
@@ -51,3 +53,5 @@ export async function POST(req: Request) {
     return err(e instanceof Error ? e.message : 'Extraction failed', 500);
   }
 }
+
+export { extractArticle as POST };
