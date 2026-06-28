@@ -34,7 +34,7 @@ async function handleArticle(
     if (!ok) return errorResponse('CAPTCHA verification failed. Please try again.', 403);
   }
 
-  const cached = getCached(validUrl);
+  const cached = await getCached(validUrl);
   if (cached)
     return new Response(renderArticlePage(cached, validUrl), { headers: HTML_HEADERS });
 
