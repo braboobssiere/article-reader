@@ -10,6 +10,10 @@
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
     "linkedom": "^0.18.12",
+    "metascraper": "^5.45.7",
+    "metascraper-author": "^5.45.7",
+    "metascraper-date": "^5.45.7",
+    "metascraper-image": "^5.45.7",
     "next": "^16.2.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
