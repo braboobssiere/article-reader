@@ -39,7 +39,7 @@ async function extractArticle(req: Request) {
     if (!ok) return err('CAPTCHA verification failed.', 403);
   }
 
-  const cached = getCached(validUrl);
+  const cached = await getCached(validUrl);
   if (cached) return Response.json(cached);
 
   const userAgent = req.headers.get('user-agent') ?? undefined;
