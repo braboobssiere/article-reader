@@ -49,6 +49,8 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
       ? `<img src="${escapeHtml(article.image)}" alt="${escapeHtml(article.title)}" class="w-full mx-auto my-5 rounded shadow" />`
       : '';
 
+  const shareUrl = `/?url=${encodeURIComponent(sourceUrl)}`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -94,6 +96,8 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
     body.theme-dark nav { border-bottom-color: #444 !important; }
     body.theme-dark .source-link { background-color: #d97706 !important; color: #000 !important; }
     body.theme-dark .source-link:hover { background-color: #b45309 !important; }
+    body.theme-dark .share-link { background-color: #374151 !important; color: #f9fafb !important; }
+    body.theme-dark .share-link:hover { background-color: #4b5563 !important; }
 
     @media (max-width: 768px) {
       .max-w-5xl { max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
@@ -141,6 +145,14 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
 
         <div class="prose max-w-6xl mx-auto my-0 leading-relaxed" id="article-content">
           ${article.content}
+        </div>
+
+        <div class="mt-8 pt-6 text-center text-sm" style="border-top: 1px solid rgba(0,0,0,0.1);">
+          <p style="opacity: 0.6; margin-bottom: 0.75rem;">🔗 Share or bookmark this article</p>
+          <a href="${escapeHtml(shareUrl)}"
+             class="share-link inline-block bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-600 transition font-medium">
+            Copy shareable link
+          </a>
         </div>
       </div>
     </main>
