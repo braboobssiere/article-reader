@@ -58,8 +58,8 @@ async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
 async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> {
   if (!CF_KV_ENABLED) return;
   try {
-    const url = kvUrl(key) + '?expirationTtl=86400'; // 1 day
-    await fetch(url, {
+    const url = kvUrl(key) + '?expiration_ttl=86400'; // 1 day
+    const response = await fetch(url, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${CF_API_TOKEN}`,
@@ -67,6 +67,9 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
       },
       body: JSON.stringify(data),
     });
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`);
+    }
   } catch (err) {
     console.warn('[Cloudflare KV] PUT error, caching skipped:', err);
   }
