@@ -9,8 +9,12 @@ function errorResponse(message: string, status: number) {
   return new Response(renderErrorPage(message), { status, headers: HTML_HEADERS });
 }
 
-// ── Shared handler ─────────────────────────────────────────────────────────
-async function handleArticle(rawUrl: string | null, req: Request, checkTurnstile: boolean) {
+async function handleArticle(
+  rawUrl: string | null,
+  turnstileToken: string | null,
+  ip: string,
+  checkTurnstile: boolean,
+) {
   if (!rawUrl) return errorResponse('Missing URL parameter.', 400);
 
   let validUrl: string;
@@ -21,32 +25,17 @@ async function handleArticle(rawUrl: string | null, req: Request, checkTurnstile
   }
 
   if (checkTurnstile && process.env.TURNSTILE_ENABLED === 'true') {
-    if (!process.env.TURNSTILE_SECRET_KEY) {
+    if (!process.env.TURNSTILE_SECRET_KEY)
       return errorResponse('Server configuration error: TURNSTILE_SECRET_KEY is not set.', 500);
-    }
-
-    // Extract token — support both form field names for compatibility
-    const body = await req.clone().formData().catch(() => new FormData());
-    const token =
-      (body.get('cf-turnstile-response') as string | null) ??
-      (body.get('turnstileToken') as string | null) ??
-      '';
-
-    if (!token) return errorResponse('CAPTCHA token missing. Please refresh and try again.', 400);
-
-    const ip =
-      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      req.headers.get('x-real-ip') ??
-      '';
-
-    const ok = await verifyTurnstile(token, ip);
+    if (!turnstileToken)
+      return errorResponse('CAPTCHA token missing. Please refresh and try again.', 400);
+    const ok = await verifyTurnstile(turnstileToken, ip);
     if (!ok) return errorResponse('CAPTCHA verification failed. Please try again.', 403);
   }
 
   const cached = getCached(validUrl);
-  if (cached) {
+  if (cached)
     return new Response(renderArticlePage(cached, validUrl), { headers: HTML_HEADERS });
-  }
 
   try {
     const article = await fetchAndParseArticle(validUrl);
@@ -54,19 +43,26 @@ async function handleArticle(rawUrl: string | null, req: Request, checkTurnstile
     return new Response(renderArticlePage(article, validUrl), { headers: HTML_HEADERS });
   } catch (err) {
     console.error('[article]', err);
-    const msg = err instanceof Error ? err.message : 'Extraction failed';
-    return errorResponse(`Error: ${msg}`, 500);
+    return errorResponse(`Error: ${err instanceof Error ? err.message : 'Extraction failed'}`, 500);
   }
 }
 
-// ── GET /article?url=... ── shareable links, no Turnstile ──────────────────
+// GET /article?url=… — shareable links, no Turnstile
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  return handleArticle(searchParams.get('url'), req, false);
+  return handleArticle(searchParams.get('url'), null, '', false);
 }
 
-// ── POST /article ── form submission, Turnstile verified if enabled ─────────
+// POST /article — form submission, body parsed once here
 export async function POST(req: Request) {
-  const body = await req.formData().catch(() => new FormData());
-  return handleArticle(body.get('url') as string | null, req, true);
+  const body = await req.formData();
+  const url = body.get('url') as string | null;
+  const token =
+    (body.get('cf-turnstile-response') as string | null) ??
+    (body.get('turnstileToken') as string | null);
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    req.headers.get('x-real-ip') ??
+    '';
+  return handleArticle(url, token, ip, true);
 }
