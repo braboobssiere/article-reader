@@ -62,7 +62,6 @@ export async function fetchAndParseArticle(url: string, userAgent?: string): Pro
       Promise.resolve(parseHTML(rawHtml)),
     ]);
 
-    const published = meta.date || null;
     const reader = new Readability(document);
     const parsed = reader.parse();
 
