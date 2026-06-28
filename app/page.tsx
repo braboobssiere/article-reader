@@ -4,7 +4,7 @@
 // just for localStorage.
 
 const HISTORY_SCRIPT = `
-(function () {
+document.addEventListener('DOMContentLoaded', function() {
   const KEY = 'linkHistory';
   const form = document.getElementById('article-form');
   const input = document.getElementById('article-url');
