@@ -39,14 +39,14 @@ async function extractArticle(req: Request) {
     if (!ok) return err('CAPTCHA verification failed.', 403);
   }
 
-  const cached = getCached(validUrl);
+  const cached = await getCached(validUrl);
   if (cached) return Response.json(cached);
 
   const userAgent = req.headers.get('user-agent') ?? undefined;
 
   try {
     const article = await fetchAndParseArticle(validUrl, userAgent);
-    setCached(validUrl, article);
+    await setCached(validUrl, article);
     return Response.json(article);
   } catch (e) {
     console.error('[api/extract]', e);
