@@ -46,7 +46,7 @@ async function extractArticle(req: Request) {
 
   try {
     const article = await fetchAndParseArticle(validUrl, userAgent);
-    setCached(validUrl, article);
+    await setCached(validUrl, article);
     return Response.json(article);
   } catch (e) {
     console.error('[api/extract]', e);
