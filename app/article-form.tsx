@@ -44,27 +44,27 @@ export default function ArticleForm({
     <>
       <div className="bg-white rounded-lg shadow p-6">
         <form
-  action="/article"
-  method={turnstileEnabled ? 'POST' : 'GET'}
-  className="flex flex-row gap-2"
-  onSubmit={handleSubmit}
->
-  <input
-    type="url"
-    name="url"
-    required
-    value={url}
-    onChange={e => setUrl(e.target.value)}
-    placeholder="Enter article URL (e.g. https://example.com/news)"
-    className="flex-1 border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
-  />
-  {turnstileEnabled && (
-    <div className="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
-  )}
-  <button type="submit" className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition">
-    Load Article
-  </button>
-</form>
+          action="/article"
+          method={turnstileEnabled ? 'POST' : 'GET'}
+          className="flex flex-row gap-2"
+          onSubmit={handleSubmit}
+        >
+          <input
+            type="url"
+            name="url"
+            required
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="Enter article URL (e.g. https://example.com/news)"
+            className="flex-1 border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
+          />
+          {turnstileEnabled && (
+            <div className="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
+          )}
+          <button type="submit" className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition">
+            Load Article
+          </button>
+        </form>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
