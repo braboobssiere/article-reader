@@ -11,9 +11,6 @@ export function escapeHtml(str: string): string {
 const NAV = `
   <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
     <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
-    <div class="flex gap-6">
-      <a href="/#how-it-works" class="hover:underline">How it works ?</a>
-    </div>
   </nav>`;
 
 // ── Error page ─────────────────────────────────────────────────────────────
