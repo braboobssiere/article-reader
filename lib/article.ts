@@ -3,7 +3,6 @@ import { parseHTML } from 'linkedom';
 import sanitizeHtml from 'sanitize-html';
 import metascraper from 'metascraper';
 import metascraperAuthor from 'metascraper-author';
-import metascraperDate from 'metascraper-date';
 import metascraperImage from 'metascraper-image';
 
 export interface ArticleData {
@@ -17,7 +16,6 @@ export interface ArticleData {
 
 const scraper = metascraper([
   metascraperAuthor(),
-  metascraperDate(),
   metascraperImage(),
 ]);
 
@@ -60,6 +58,11 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       Promise.resolve(parseHTML(rawHtml)),
     ]);
 
+    const published =
+      document.querySelector('meta[property="article:published_time"]')?.getAttribute('content') ||
+      document.querySelector('meta[name="publishdate"]')?.getAttribute('content') ||
+      null;
+
     const reader = new Readability(document);
     const parsed = reader.parse();
 
@@ -79,7 +82,7 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       title: parsed.title || 'Untitled',
       content,
       author: meta.author || parsed.byline || null,
-      published: meta.date || null,
+      published,
       image: meta.image || null,
       ttr: computeReadingTime(content),
     };
