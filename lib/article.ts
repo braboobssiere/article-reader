@@ -30,6 +30,7 @@ const CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
+const CF_KV_TTL = parseInt(process.env.CLOUDFLARE_KV_TTL || '86400', 10); 
 
 // ── Helper: build Cloudflare KV URL for a key ────────────────────────
 function kvUrl(key: string): string {
@@ -58,7 +59,7 @@ async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
 async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> {
   if (!CF_KV_ENABLED) return;
   try {
-    const url = kvUrl(key) + '?expiration_ttl=86400'; // 1 day
+    const url = kvUrl(key) + `?expiration_ttl=${CF_KV_TTL}`;
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
