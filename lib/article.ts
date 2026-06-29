@@ -30,7 +30,7 @@ const CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
-const CF_KV_TTL = parseInt(process.env.CLOUDFLARE_KV_TTL || '86400', 10); 
+const CF_KV_TTL = Math.max(3600, parseInt((process.env.CLOUDFLARE_KV_TTL || '').replace(/\D/g, ''), 10) || 86400);
 
 // ── Helper: build Cloudflare KV URL for a key ────────────────────────
 function kvUrl(key: string): string {
