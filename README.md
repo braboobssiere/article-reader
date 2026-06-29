@@ -2,7 +2,7 @@
 
 Paste any article link. Get a clean, ad-free page to read it — no clutter, no distractions, no tracking.
 
-Your own personal "Reader Mode" that works on any website* (not really 😃), accessible from any device via a link you control.
+Your own personal "Reader Mode" that works on any website* (not really.. some site hate AI/scraper which may block us too), accessible from any device via a link you control.
 
 ---
 
