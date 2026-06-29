@@ -5,6 +5,7 @@ import metascraper from 'metascraper';
 import metascraperAuthor from 'metascraper-author';
 import metascraperImage from 'metascraper-image';
 import metascraperDate from 'metascraper-date';
+import desktopUserAgents from 'top-user-agents/desktop';
 
 export interface ArticleData {
   title: string;
@@ -12,7 +13,6 @@ export interface ArticleData {
   author: string | null;
   published: string | null;
   image: string | null;
-  // ttr removed
 }
 
 const scraper = metascraper([
@@ -21,23 +21,19 @@ const scraper = metascraper([
   metascraperDate(),
 ]);
 
-// ── In‑memory fallback cache ──────────────────────────────────────────
 const memoryCache = new Map<string, { data: ArticleData; expires: number }>();
-const MEMORY_TTL_MS = 3_600_000; // 1 hour
+const MEMORY_TTL_MS = 3_600_000;
 
-// ── Cloudflare KV configuration ────────────────────────────────────────
 const CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const CF_KV_TTL = Math.max(3600, parseInt((process.env.CLOUDFLARE_KV_TTL || '').replace(/\D/g, ''), 10) || 86400);
 
-// ── Helper: build Cloudflare KV URL for a key ────────────────────────
 function kvUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
 }
 
-// ── Cloudflare KV operations ──────────────────────────────────────────
 async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
   if (!CF_KV_ENABLED) return null;
   try {
@@ -78,7 +74,6 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
   }
 }
 
-// ── Public cache API ──────────────────────────────────────────────────
 export async function getCached(url: string): Promise<ArticleData | null> {
   if (CF_KV_ENABLED) {
     const cfData = await getFromCloudflareKV(url);
@@ -100,15 +95,31 @@ export async function setCached(url: string, data: ArticleData): Promise<void> {
   memoryCache.set(url, { data, expires: Date.now() + MEMORY_TTL_MS });
 }
 
-// ── fetch and parse ──────────────────────────────────────────────────
+function selectUserAgent(providedUA?: string): string {
+  const defaultUA =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+  if (Array.isArray(desktopUserAgents) && desktopUserAgents.length > 0) {
+    const randomIndex = Math.floor(Math.random() * desktopUserAgents.length);
+    const ua = desktopUserAgents[randomIndex];
+    if (ua) return ua;
+  }
+
+  if (providedUA) return providedUA;
+
+  return defaultUA;
+}
+
 export async function fetchAndParseArticle(url: string, userAgent?: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   try {
+    const finalUserAgent = selectUserAgent(userAgent);
+
     const response = await fetch(url, {
       headers: {
-        'User-Agent': userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': finalUserAgent,
       },
       signal: controller.signal,
     });
