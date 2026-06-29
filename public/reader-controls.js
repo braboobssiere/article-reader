@@ -61,4 +61,15 @@
       prefs.width = this.dataset.width;
       applyWidth(prefs.width); save(prefs);
     }));
+
+  const shareBtn = document.getElementById('share-btn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', function () {
+      const url = window.location.origin + shareBtn.dataset.shareUrl;
+      navigator.clipboard.writeText(url).then(function () {
+        shareBtn.textContent = '✓ Copied!';
+        setTimeout(function () { shareBtn.textContent = 'Copy shareable link'; }, 2000);
+      });
+    });
+  }
 })();
