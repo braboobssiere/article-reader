@@ -152,7 +152,12 @@ function extractMetadata(doc: Document, baseUrl: string): {
       } else if (jsonLdData.author.name) {
         author = jsonLdData.author.name;
       } else if (Array.isArray(jsonLdData.author) && jsonLdData.author.length > 0) {
-        author = jsonLdData.author[0].name || jsonLdData.author[0];
+        const firstAuthor = jsonLdData.author[0];
+        if (typeof firstAuthor === 'string') {
+          author = firstAuthor;
+        } else if (firstAuthor?.name) {
+          author = firstAuthor.name;
+        }
       }
     }
   }
@@ -184,18 +189,28 @@ function extractMetadata(doc: Document, baseUrl: string): {
       null;
   }
 
-  // Extract image
+  // Extract image with robust handling for different JSON‑LD shapes
   let image: string | null = null;
   if (jsonLdData) {
-    image = jsonLdData.image || jsonLdData.thumbnailUrl || null;
-    if (image && typeof image === 'object') {
-      image = image.url || image.contentUrl || null;
-    }
-    if (Array.isArray(image) && image.length > 0) {
-      image = image[0];
-      if (typeof image === 'object') image = image.url || image.contentUrl || null;
+    const rawImage = jsonLdData.image || jsonLdData.thumbnailUrl || null;
+    if (rawImage) {
+      if (typeof rawImage === 'string') {
+        image = rawImage;
+      } else if (Array.isArray(rawImage) && rawImage.length > 0) {
+        const first = rawImage[0];
+        if (typeof first === 'string') {
+          image = first;
+        } else if (typeof first === 'object' && first !== null) {
+          // Some sites use objects with url, contentUrl, etc.
+          image = (first as any).url || (first as any).contentUrl || null;
+        }
+      } else if (typeof rawImage === 'object' && rawImage !== null) {
+        image = (rawImage as any).url || (rawImage as any).contentUrl || null;
+      }
     }
   }
+
+  // Fallback to meta tags
   if (!image) {
     image =
       meta('meta[property="og:image:secure_url"]') ||
