@@ -24,11 +24,25 @@ const scraper = metascraper([
 const memoryCache = new Map<string, { data: ArticleData; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
 
+// Prune expired entries every hour so the Map doesn't grow indefinitely.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of memoryCache) {
+    if (entry.expires <= now) memoryCache.delete(key);
+  }
+}, MEMORY_TTL_MS).unref();
+
 const CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
-const CF_KV_TTL = Math.max(3600, parseInt((process.env.CLOUDFLARE_KV_TTL || '').replace(/\D/g, ''), 10) || 86400);
+
+const CF_KV_TTL_RAW = parseInt(process.env.CLOUDFLARE_KV_TTL ?? '', 10);
+if (process.env.CLOUDFLARE_KV_TTL && isNaN(CF_KV_TTL_RAW)) {
+  console.warn('[config] CLOUDFLARE_KV_TTL is not a valid integer, using default of 86400');
+}
+// Minimum 3600s (1 hour); falls back to 86400s (1 day) when unset.
+const CF_KV_TTL = Math.max(3600, !isNaN(CF_KV_TTL_RAW) ? CF_KV_TTL_RAW : 86400);
 
 function kvUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
@@ -95,32 +109,21 @@ export async function setCached(url: string, data: ArticleData): Promise<void> {
   memoryCache.set(url, { data, expires: Date.now() + MEMORY_TTL_MS });
 }
 
-function selectUserAgent(providedUA?: string): string {
-  const defaultUA =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const DEFAULT_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-  if (Array.isArray(desktopUserAgents) && desktopUserAgents.length > 0) {
-    const randomIndex = Math.floor(Math.random() * desktopUserAgents.length);
-    const ua = desktopUserAgents[randomIndex];
-    if (ua) return ua;
-  }
-
-  if (providedUA) return providedUA;
-
-  return defaultUA;
+function selectUserAgent(): string {
+  const ua = desktopUserAgents[Math.floor(Math.random() * desktopUserAgents.length)];
+  return ua ?? DEFAULT_UA;
 }
 
-export async function fetchAndParseArticle(url: string, userAgent?: string): Promise<ArticleData> {
+export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const finalUserAgent = selectUserAgent(userAgent);
-
     const response = await fetch(url, {
-      headers: {
-        'User-Agent': finalUserAgent,
-      },
+      headers: { 'User-Agent': selectUserAgent() },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
