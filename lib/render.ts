@@ -86,7 +86,7 @@ const ARTICLE_TEMPLATE = `
 <div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
   <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
   <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
-  <!-- reading time removed -->
+  <!-- Reading time removed -->
 </div>
 
 <div class="reader-toolbar" id="reader-controls">
@@ -111,7 +111,8 @@ const ARTICLE_TEMPLATE = `
 
 <div class="mt-8 pt-6 text-center text-sm" style="border-top: 1px solid rgba(0,0,0,0.1);">
   <p style="opacity: 0.6; margin-bottom: 0.75rem;">🔗 Share or bookmark this article</p>
-  <button onclick="navigator.clipboard.writeText(window.location.origin + <%= JSON.stringify(it.shareUrl) %>)"
+  <button
+    onclick="var b=this,u=window.location.origin + '<%= it.shareUrl %>';navigator.clipboard.writeText(u).then(function(){b.textContent='✓ Copied!';setTimeout(function(){b.textContent='Copy shareable link';},2000)});"
     class="share-link inline-block bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-600 transition font-medium cursor-pointer border-0">
     Copy shareable link
   </button>
@@ -148,6 +149,7 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
     shareUrl,
   });
 
+  // Inline JavaScript for reader controls – unchanged
   const scripts = `
     <script>
       (function () {
