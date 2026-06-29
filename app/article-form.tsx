@@ -36,6 +36,7 @@ export default function ArticleForm({
     const entry = { link: url, date: new Date().toISOString() };
     const next = [entry, ...readHistory().filter(e => e.link !== url)].slice(0, HISTORY_LIMIT);
     localStorage.setItem(KEY, JSON.stringify(next));
+    setHistory(next); // Update UI immediately
   }
 
   function clearHistory() {
@@ -47,6 +48,7 @@ export default function ArticleForm({
     <>
       {/* Form section */}
       <div className="bg-white rounded-lg shadow p-6">
+        {/* intentional: let the browser POST natively; onSubmit only persists history */}
         <form
           action="/article"
           method="post"
@@ -79,7 +81,7 @@ export default function ArticleForm({
         </form>
       </div>
 
-      {/* History section (unchanged) */}
+      {/* History section */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between gap-4 mb-4">
           <h2 className="text-lg font-bold">History</h2>
@@ -95,7 +97,7 @@ export default function ArticleForm({
           {history.length === 0 ? (
             <li className="py-3 text-sm text-gray-500">No history yet.</li>
           ) : (
-            history.slice(0, 100).map((entry, i) => (
+            history.map((entry, i) => (
               <li key={i} className="py-3 flex items-start justify-between gap-4">
                 <button
                   type="button"
