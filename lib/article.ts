@@ -1,10 +1,6 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 import sanitizeHtml from 'sanitize-html';
-import metascraper from 'metascraper';
-import metascraperAuthor from 'metascraper-author';
-import metascraperImage from 'metascraper-image';
-import metascraperDate from 'metascraper-date';
 import desktopUserAgents from 'top-user-agents/desktop';
 
 export interface ArticleData {
@@ -15,16 +11,11 @@ export interface ArticleData {
   image: string | null;
 }
 
-const scraper = metascraper([
-  metascraperAuthor(),
-  metascraperImage(),
-  metascraperDate(),
-]);
-
+// Short-lived in-memory cache – useful mainly for burst traffic on the same instance.
+// In Vercel serverless, instances are ephemeral and spin down quickly.
 const memoryCache = new Map<string, { data: ArticleData; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
 
-// Prune expired entries every hour so the Map doesn't grow indefinitely.
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of memoryCache) {
@@ -41,8 +32,10 @@ const CF_KV_TTL_RAW = parseInt(process.env.CLOUDFLARE_KV_TTL ?? '', 10);
 if (process.env.CLOUDFLARE_KV_TTL && isNaN(CF_KV_TTL_RAW)) {
   console.warn('[config] CLOUDFLARE_KV_TTL is not a valid integer, using default of 86400');
 }
-// Minimum 3600s (1 hour); falls back to 86400s (1 day) when unset.
 const CF_KV_TTL = Math.max(3600, !isNaN(CF_KV_TTL_RAW) ? CF_KV_TTL_RAW : 86400);
+if (!isNaN(CF_KV_TTL_RAW) && CF_KV_TTL_RAW < 3600) {
+  console.warn('[config] CLOUDFLARE_KV_TTL is below 3600, clamped to 3600');
+}
 
 function kvUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
@@ -117,6 +110,119 @@ function selectUserAgent(): string {
   return ua ?? DEFAULT_UA;
 }
 
+/**
+ * Extract metadata from the DOM using multiple strategies:
+ * - JSON‑LD (schema.org)
+ * - Open Graph / Twitter / standard meta tags
+ * - Fallback to <link rel="image_src">
+ * Resolves relative image URLs against the base URL.
+ */
+function extractMetadata(doc: Document, baseUrl: string): {
+  author: string | null;
+  published: string | null;
+  image: string | null;
+} {
+  // Helper to get meta content by name or property
+  const meta = (selector: string) => {
+    const el = doc.querySelector(selector);
+    return el?.getAttribute('content')?.trim() || null;
+  };
+
+  // 1. Try JSON‑LD (schema.org)
+  let jsonLdData: any = null;
+  const scriptTags = doc.querySelectorAll('script[type="application/ld+json"]');
+  for (const script of scriptTags) {
+    try {
+      const parsed = JSON.parse(script.textContent || '');
+      // If it's an array, take the first item or find the relevant type
+      let data = Array.isArray(parsed) ? parsed.find(item => item['@type']?.includes('Article')) || parsed[0] : parsed;
+      if (data && (data['@type']?.includes('Article') || data['@type']?.includes('NewsArticle') || data['@type']?.includes('BlogPosting'))) {
+        jsonLdData = data;
+        break;
+      }
+    } catch (_) { /* ignore invalid JSON */ }
+  }
+
+  // Extract author from JSON‑LD
+  let author: string | null = null;
+  if (jsonLdData) {
+    if (jsonLdData.author) {
+      if (typeof jsonLdData.author === 'string') {
+        author = jsonLdData.author;
+      } else if (jsonLdData.author.name) {
+        author = jsonLdData.author.name;
+      } else if (Array.isArray(jsonLdData.author) && jsonLdData.author.length > 0) {
+        author = jsonLdData.author[0].name || jsonLdData.author[0];
+      }
+    }
+  }
+
+  // Fallback to meta tags
+  if (!author) {
+    author =
+      meta('meta[name="author"]') ||
+      meta('meta[property="article:author"]') ||
+      meta('meta[property="og:author"]') ||
+      meta('meta[name="creator"]') ||
+      meta('meta[property="og:article:author"]') ||
+      null;
+  }
+
+  // Extract date published
+  let published: string | null = null;
+  if (jsonLdData) {
+    published = jsonLdData.datePublished || jsonLdData.dateModified || null;
+  }
+  if (!published) {
+    published =
+      meta('meta[property="article:published_time"]') ||
+      meta('meta[property="og:published_time"]') ||
+      meta('meta[name="date"]') ||
+      meta('meta[name="publish-date"]') ||
+      meta('meta[name="pubdate"]') ||
+      meta('meta[property="og:article:published_time"]') ||
+      null;
+  }
+
+  // Extract image
+  let image: string | null = null;
+  if (jsonLdData) {
+    image = jsonLdData.image || jsonLdData.thumbnailUrl || null;
+    if (image && typeof image === 'object') {
+      image = image.url || image.contentUrl || null;
+    }
+    if (Array.isArray(image) && image.length > 0) {
+      image = image[0];
+      if (typeof image === 'object') image = image.url || image.contentUrl || null;
+    }
+  }
+  if (!image) {
+    image =
+      meta('meta[property="og:image:secure_url"]') ||
+      meta('meta[property="og:image"]') ||
+      meta('meta[property="twitter:image:src"]') ||
+      meta('meta[name="twitter:image"]') ||
+      meta('meta[property="og:image:url"]') ||
+      null;
+  }
+  // Fallback to <link rel="image_src">
+  if (!image) {
+    const link = doc.querySelector('link[rel="image_src"]');
+    if (link) image = link.getAttribute('href');
+  }
+
+  // Resolve relative image URL against the base URL
+  if (image) {
+    try {
+      image = new URL(image, baseUrl).href;
+    } catch (_) {
+      // keep as is if invalid
+    }
+  }
+
+  return { author, published, image };
+}
+
 export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
@@ -132,29 +238,39 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
 
     const rawHtml = await response.text();
 
-    const meta = await scraper({ html: rawHtml, url });
+    // Parse HTML once with linkedom
     const { document } = parseHTML(rawHtml);
 
-    const reader = new Readability(document);
-    const parsed = reader.parse();
+    // Extract metadata using the robust extractor, passing the base URL for image resolution
+    const meta = extractMetadata(document, url);
+
+    // Run Readability with a timeout to prevent hanging on pathological HTML
+    const parsed = await Promise.race([
+      Promise.resolve(new Readability(document).parse()),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Parse timeout')), 5000)),
+    ]);
 
     if (!parsed?.content || parsed.content.trim().length < 50) {
       throw new Error('Could not extract article content');
     }
 
-    const content = sanitizeHtml(parsed.content, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
-      allowedAttributes: {
-        ...sanitizeHtml.defaults.allowedAttributes,
-        img: ['src', 'alt', 'width', 'height'],
-      },
-    });
+    // Sanitize with a timeout as well
+    const content = await Promise.race([
+      Promise.resolve(sanitizeHtml(parsed.content, {
+        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+        allowedAttributes: {
+          ...sanitizeHtml.defaults.allowedAttributes,
+          img: ['src', 'alt', 'width', 'height'],
+        },
+      })),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sanitize timeout')), 5000)),
+    ]);
 
     return {
       title: parsed.title || 'Untitled',
       content,
       author: meta.author || parsed.byline || null,
-      published: meta.date || null,
+      published: meta.published || null,
       image: meta.image || null,
     };
   } catch (err) {
