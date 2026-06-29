@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 const KEY = 'linkHistory';
-const HISTORY_LIMIT = 20;
+const HISTORY_LIMIT = 100;
 
 interface HistoryEntry { link: string; date: string; }
 
@@ -79,7 +79,7 @@ export default function ArticleForm({
         </form>
       </div>
 
-      {/* History section */}
+      {/* History section (unchanged) */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between gap-4 mb-4">
           <h2 className="text-lg font-bold">History</h2>
@@ -95,7 +95,7 @@ export default function ArticleForm({
           {history.length === 0 ? (
             <li className="py-3 text-sm text-gray-500">No history yet.</li>
           ) : (
-            history.map((entry, i) => (
+            history.slice(0, 100).map((entry, i) => (
               <li key={i} className="py-3 flex items-start justify-between gap-4">
                 <button
                   type="button"
