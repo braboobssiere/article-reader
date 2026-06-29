@@ -1,20 +1,10 @@
 import { Eta } from 'eta';
 import type { ArticleData } from './article';
 
-// ─── Configure eta (no views directory, inline only) ──────────────
 const eta = new Eta({
   cache: process.env.NODE_ENV === 'production',
 });
 
-// ─── HTML escaping helper (still used for user‑provided text) ────
-export function escapeHtml(str: string): string {
-  if (!str) return '';
-  return str.replace(/[&<>"']/g, (m) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m] ?? m)
-  );
-}
-
-// ─── 1. Layout template (wraps all pages) ──────────────────────────
 const LAYOUT_TEMPLATE = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,7 +72,6 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// ─── 2. Article content template ─────────────────────────────────────
 const ARTICLE_TEMPLATE = `
 <a href="<%= it.sourceUrl %>" target="_blank" rel="noopener noreferrer"
    class="source-link flex items-center justify-center gap-2 bg-yellow-500 text-black text-center py-1 rounded font-bold underline mb-6">
@@ -90,12 +79,14 @@ const ARTICLE_TEMPLATE = `
 </a>
 <h1 class="text-2xl md:text-3xl font-bold text-center my-4"><%= it.article.title %></h1>
 
-<%~ it.imageHtml %>
+<% if (it.article.image && !it.article.content.includes(it.article.image)) { %>
+  <img src="<%= it.article.image %>" alt="<%= it.article.title %>" class="w-full mx-auto my-5 rounded shadow" />
+<% } %>
 
 <div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
   <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
   <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
-  <div class="flex items-center gap-1">⏱️ <%= it.readingTime %> min read</div>
+  <!-- reading time removed -->
 </div>
 
 <div class="reader-toolbar" id="reader-controls">
@@ -120,14 +111,13 @@ const ARTICLE_TEMPLATE = `
 
 <div class="mt-8 pt-6 text-center text-sm" style="border-top: 1px solid rgba(0,0,0,0.1);">
   <p style="opacity: 0.6; margin-bottom: 0.75rem;">🔗 Share or bookmark this article</p>
-  <button onclick="var b=this,u=window.location.origin+'<%= it.shareUrl %>';navigator.clipboard.writeText(u).then(function(){b.textContent='✓ Copied!';setTimeout(function(){b.textContent='Copy shareable link';},2000)});"
+  <button onclick="navigator.clipboard.writeText(window.location.origin + <%= JSON.stringify(it.shareUrl) %>)"
     class="share-link inline-block bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-600 transition font-medium cursor-pointer border-0">
     Copy shareable link
   </button>
 </div>
 `;
 
-// ─── 3. Error content template ──────────────────────────────────────
 const ERROR_TEMPLATE = `
 <div class="text-center">
   <p class="text-red-600 font-semibold">⚠️ <%= it.message %></p>
@@ -135,10 +125,8 @@ const ERROR_TEMPLATE = `
 </div>
 `;
 
-// ─── Render functions ─────────────────────────────────────────────────
-
 export function renderErrorPage(message: string): string {
-  const body = eta.renderString(ERROR_TEMPLATE, { message: escapeHtml(message) });
+  const body = eta.renderString(ERROR_TEMPLATE, { message });
   return eta.renderString(LAYOUT_TEMPLATE, {
     title: 'Error – Private Article Reader',
     body,
@@ -147,29 +135,19 @@ export function renderErrorPage(message: string): string {
 }
 
 export function renderArticlePage(article: ArticleData, sourceUrl: string): string {
-  const readingTime = Math.round(article.ttr / 60);
   const publishedDate = article.published
     ? new Date(article.published).toLocaleDateString()
     : 'Publishing time not found';
   const author = article.author ?? 'No author found';
-  const imageHtml =
-    article.image && !article.content.includes(article.image)
-      ? `<img src="${escapeHtml(article.image)}" alt="${escapeHtml(article.title)}" class="w-full mx-auto my-5 rounded shadow" />`
-      : '';
-
   const shareUrl = `/?url=${encodeURIComponent(sourceUrl)}`;
 
-  // Render the article body
   const body = eta.renderString(ARTICLE_TEMPLATE, {
     article: { ...article, author },
     sourceUrl,
-    imageHtml,
     publishedDate,
-    readingTime,
     shareUrl,
   });
 
-  // Inline JavaScript for reader controls
   const scripts = `
     <script>
       (function () {
@@ -240,7 +218,7 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
   `;
 
   return eta.renderString(LAYOUT_TEMPLATE, {
-    title: `${escapeHtml(article.title)} – Private Article Reader`,
+    title: `${article.title} – Private Article Reader`,
     body,
     scripts,
   });
