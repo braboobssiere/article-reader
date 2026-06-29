@@ -43,8 +43,8 @@ async function handleArticle(
     await setCached(validUrl, article);
     return new Response(renderArticlePage(article, validUrl), { headers: HTML_HEADERS });
   } catch (err) {
-    console.error('[article]', err);
-    return errorResponse(`Error: ${err instanceof Error ? err.message : 'Extraction failed'}`, 500);
+  console.error('[article]', err);
+  return errorResponse('Failed to fetch or parse the article. Please try again later.', 500);
   }
 }
 
