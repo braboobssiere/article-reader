@@ -111,7 +111,8 @@ const ARTICLE_TEMPLATE = `
 <div class="mt-8 pt-6 text-center text-sm" style="border-top: 1px solid rgba(0,0,0,0.1);">
   <p style="opacity: 0.6; margin-bottom: 0.75rem;">🔗 Share or bookmark this article</p>
   <button
-    onclick="var b=this,u=window.location.origin + '<%= it.shareUrl %>';navigator.clipboard.writeText(u).then(function(){b.textContent='✓ Copied!';setTimeout(function(){b.textContent='Copy shareable link';},2000)});"
+    id="share-btn"
+    data-share-url="<%= it.shareUrl %>"
     class="share-link inline-block bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-600 transition font-medium cursor-pointer border-0">
     Copy shareable link
   </button>
