@@ -139,13 +139,14 @@ If you want faster repeat loads (or you're sharing the reader with others), you 
 
 ---
 
-## Tech used (for the curious)
+## Tech used
 
 | Piece | What it is |
 |---|---|
 | Next.js 15 | The web framework that runs everything |
 | @mozilla/readability | Mozilla's article extractor (same one Firefox uses) |
 | sanitize-html | Removes any dangerous code from extracted content |
+| Eta | Lightweight templating engine for rendering HTML pages |
 | ssrf-guard | Blocks requests to internal/private addresses |
 | Cloudflare KV | Optional cloud storage for caching articles |
 | Tailwind CSS | Handles the styling |
