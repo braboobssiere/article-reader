@@ -14,7 +14,6 @@ async function handleArticle(
   turnstileToken: string | null,
   ip: string,
   checkTurnstile: boolean,
-  userAgent?: string,
 ) {
   if (!rawUrl) return errorResponse('Missing URL parameter.', 400);
 
@@ -39,12 +38,12 @@ async function handleArticle(
     return new Response(renderArticlePage(cached, validUrl), { headers: HTML_HEADERS });
 
   try {
-    const article = await fetchAndParseArticle(validUrl, userAgent);
+    const article = await fetchAndParseArticle(validUrl);
     await setCached(validUrl, article);
     return new Response(renderArticlePage(article, validUrl), { headers: HTML_HEADERS });
   } catch (err) {
-  console.error('[article]', err);
-  return errorResponse('Failed to fetch or parse the article. Please try again later.', 500);
+    console.error('[article]', err);
+    return errorResponse('Failed to fetch or parse the article. Please try again later.', 500);
   }
 }
 
@@ -67,8 +66,7 @@ async function submitArticleForm(req: Request) {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     '';
-  const userAgent = req.headers.get('user-agent') ?? undefined;
-  return handleArticle(url, token, ip, true, userAgent);
+  return handleArticle(url, token, ip, true);
 }
 
 export { redirectArticleToHome as GET, submitArticleForm as POST };

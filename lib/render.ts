@@ -86,7 +86,6 @@ const ARTICLE_TEMPLATE = `
 <div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
   <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
   <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
-  <!-- Reading time removed -->
 </div>
 
 <div class="reader-toolbar" id="reader-controls">
@@ -112,7 +111,8 @@ const ARTICLE_TEMPLATE = `
 <div class="mt-8 pt-6 text-center text-sm" style="border-top: 1px solid rgba(0,0,0,0.1);">
   <p style="opacity: 0.6; margin-bottom: 0.75rem;">🔗 Share or bookmark this article</p>
   <button
-    onclick="var b=this,u=window.location.origin + '<%= it.shareUrl %>';navigator.clipboard.writeText(u).then(function(){b.textContent='✓ Copied!';setTimeout(function(){b.textContent='Copy shareable link';},2000)});"
+    id="share-btn"
+    data-share-url="<%= it.shareUrl %>"
     class="share-link inline-block bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-600 transition font-medium cursor-pointer border-0">
     Copy shareable link
   </button>
@@ -149,79 +149,9 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
     shareUrl,
   });
 
-  // Inline JavaScript for reader controls – unchanged
-  const scripts = `
-    <script>
-      (function () {
-        const KEY = 'readerPreferences';
-        const defaults = { theme: 'sepia', fontSize: 18, width: 'medium' };
-
-        function load() {
-          try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
-          catch { return { ...defaults }; }
-        }
-        function save(p) { localStorage.setItem(KEY, JSON.stringify(p)); }
-
-        function applyTheme(theme) {
-          const body = document.body;
-          const root = document.documentElement;
-          const themes = {
-            light: ['#ffffff', '#1a1a1a', false],
-            dark:  ['#1e1e1e', '#d4d4d4', true],
-            sepia: ['#fbf4e8', '#5b4637', false],
-          };
-          const [bg, text, dark] = themes[theme] || themes.sepia;
-          root.style.setProperty('--bg-color', bg);
-          root.style.setProperty('--text-color', text);
-          body.classList.toggle('theme-dark', dark);
-          document.querySelectorAll('[data-theme]').forEach(b =>
-            b.classList.toggle('active', b.dataset.theme === theme));
-        }
-
-        function applyFont(size) {
-          document.documentElement.style.setProperty('--font-size-base', size + 'px');
-        }
-
-        function applyWidth(width) {
-          const widths = { narrow: '50ch', medium: '65ch', wide: '90ch' };
-          document.documentElement.style.setProperty('--prose-max-width', widths[width] || '65ch');
-          document.querySelectorAll('[data-width]').forEach(b =>
-            b.classList.toggle('active', b.dataset.width === width));
-        }
-
-        const prefs = load();
-        applyTheme(prefs.theme);
-        applyFont(prefs.fontSize);
-        applyWidth(prefs.width);
-
-        document.querySelectorAll('[data-theme]').forEach(btn =>
-          btn.addEventListener('click', function () {
-            prefs.theme = this.dataset.theme;
-            applyTheme(prefs.theme);
-            save(prefs);
-          }));
-
-        document.getElementById('font-decrease').addEventListener('click', function () {
-          prefs.fontSize = Math.max(12, prefs.fontSize - 2);
-          applyFont(prefs.fontSize); save(prefs);
-        });
-        document.getElementById('font-increase').addEventListener('click', function () {
-          prefs.fontSize = Math.min(32, prefs.fontSize + 2);
-          applyFont(prefs.fontSize); save(prefs);
-        });
-
-        document.querySelectorAll('[data-width]').forEach(btn =>
-          btn.addEventListener('click', function () {
-            prefs.width = this.dataset.width;
-            applyWidth(prefs.width); save(prefs);
-          }));
-      })();
-    </script>
-  `;
-
   return eta.renderString(LAYOUT_TEMPLATE, {
     title: `${article.title} – Private Article Reader`,
     body,
-    scripts,
+    scripts: `<script src="/reader-controls.js"></script>`,
   });
 }
