@@ -98,16 +98,16 @@ Follow the prompts. Vercel will give you a public URL.
 
 Most of these are **optional**. The app works fine without them.
 
-| Setting | What it does | Do I need it? |
-|---|---|---|
-| `TURNSTILE_ENABLED` | Adds a CAPTCHA to stop bots from abusing your reader | Only if it's public-facing and you're worried about abuse |
-| `TURNSTILE_SITE_KEY` | Public key for the CAPTCHA (from [Cloudflare Turnstile](https://dash.cloudflare.com)) | Only if you enabled Turnstile |
-| `TURNSTILE_SECRET_KEY` | Secret key for the CAPTCHA — keep this private | Only if you enabled Turnstile |
-| `CLOUDFLARE_KV_ENABLED` | Saves fetched articles in the cloud so repeat loads are instant | Nice to have, not required |
-| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID | Only if you enabled KV |
-| `CLOUDFLARE_KV_NAMESPACE_ID` | The ID of your article cache storage bucket | Only if you enabled KV |
-| `CLOUDFLARE_API_TOKEN` | Secret token that lets the app write to the cache — keep this private | Only if you enabled KV |
-| `CLOUDFLARE_KV_TTL` | How long (in seconds) to keep an article in the cache. Default is `86400` (1 day). Set to `3600` for 1 hour, `604800` for 1 week. | Only if you enabled KV |
+| Setting | What it does | Type | Do I need it? |
+|---|---|---|---|
+| `TURNSTILE_ENABLED` | Adds a CAPTCHA to stop bots from abusing your reader | Plain text | Only if it's public-facing and you're worried about abuse |
+| `TURNSTILE_SITE_KEY` | Public key for the CAPTCHA (from [Cloudflare Turnstile](https://dash.cloudflare.com)) | Plain text | Only if you enabled Turnstile |
+| `TURNSTILE_SECRET_KEY` | Secret key for the CAPTCHA | 🔒 Secret | Only if you enabled Turnstile |
+| `CLOUDFLARE_KV_ENABLED` | Saves fetched articles in the cloud so repeat loads are instant | Plain text | Nice to have, not required |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID | Plain text | Only if you enabled KV |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | The ID of your article cache storage bucket | Plain text | Only if you enabled KV |
+| `CLOUDFLARE_API_TOKEN` | Token that lets the app write to the cache | 🔒 Secret | Only if you enabled KV |
+| `CLOUDFLARE_KV_TTL` | How long (in seconds) to keep an article in the cache. Default is `86400` (1 day). | Plain text | Only if you enabled KV |
 
 > **Tip:** If you just want to try the app, leave all of these blank. It will still work — articles just won't be cached between restarts.
 
