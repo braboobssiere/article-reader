@@ -46,7 +46,10 @@ async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
     });
     if (!res.ok) {
       if (res.status === 404) return null;
-      throw new Error(`Cloudflare KV GET failed: ${res.status}`);
+      // Log the full error details
+      const text = await res.text();
+      console.warn(`[Cloudflare KV] GET failed (${res.status}): ${text.slice(0, 200)}`);
+      return null;
     }
     const data = await res.json();
     return data as ArticleData;
@@ -118,7 +121,7 @@ export async function fetchAndParseArticle(url: string, userAgent?: string): Pro
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': userAgent || 'Mozilla/5.0 (compatible; PrivateArticleReader/1.0)',
+        'User-Agent': userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
       signal: controller.signal,
     });
@@ -128,10 +131,8 @@ export async function fetchAndParseArticle(url: string, userAgent?: string): Pro
 
     const rawHtml = await response.text();
 
-    const [meta, { document }] = await Promise.all([
-      scraper({ html: rawHtml, url }),
-      Promise.resolve(parseHTML(rawHtml)),
-    ]);
+    const meta = await scraper({ html: rawHtml, url });
+    const { document } = parseHTML(rawHtml);
 
     const reader = new Readability(document);
     const parsed = reader.parse();
