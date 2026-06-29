@@ -12,7 +12,7 @@ export interface ArticleData {
   author: string | null;
   published: string | null;
   image: string | null;
-  ttr: number;
+  // ttr removed
 }
 
 const scraper = metascraper([
@@ -46,7 +46,6 @@ async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
     });
     if (!res.ok) {
       if (res.status === 404) return null;
-      // Log the full error details
       const text = await res.text();
       console.warn(`[Cloudflare KV] GET failed (${res.status}): ${text.slice(0, 200)}`);
       return null;
@@ -79,15 +78,13 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
   }
 }
 
-// ── Public cache API (now async) ──────────────────────────────────────
+// ── Public cache API ──────────────────────────────────────────────────
 export async function getCached(url: string): Promise<ArticleData | null> {
-  // 1. Try Cloudflare KV first if enabled
   if (CF_KV_ENABLED) {
     const cfData = await getFromCloudflareKV(url);
     if (cfData) return cfData;
   }
 
-  // 2. Fallback to in‑memory
   const entry = memoryCache.get(url);
   if (entry && entry.expires > Date.now()) return entry.data;
   memoryCache.delete(url);
@@ -95,25 +92,15 @@ export async function getCached(url: string): Promise<ArticleData | null> {
 }
 
 export async function setCached(url: string, data: ArticleData): Promise<void> {
-  // 1. Store in Cloudflare KV if enabled (do not await – fire and forget)
   if (CF_KV_ENABLED) {
-    // We await inside setToCloudflareKV but we can let it run in background
-    // to not block the response. However, we must ensure errors are logged.
     setToCloudflareKV(url, data).catch(err =>
       console.warn('[Cloudflare KV] background set error:', err)
     );
   }
-
-  // 2. Always store in memory as a quick fallback
   memoryCache.set(url, { data, expires: Date.now() + MEMORY_TTL_MS });
 }
 
-// ── fetch and parse (unchanged) ──────────────────────────────────────
-function computeReadingTime(html: string): number {
-  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  return Math.ceil((text.split(/\s+/).length / 200) * 60);
-}
-
+// ── fetch and parse ──────────────────────────────────────────────────
 export async function fetchAndParseArticle(url: string, userAgent?: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
@@ -155,7 +142,6 @@ export async function fetchAndParseArticle(url: string, userAgent?: string): Pro
       author: meta.author || parsed.byline || null,
       published: meta.date || null,
       image: meta.image || null,
-      ttr: computeReadingTime(content),
     };
   } catch (err) {
     clearTimeout(timeoutId);
