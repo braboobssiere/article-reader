@@ -113,6 +113,7 @@ function selectUserAgent(): string {
 /**
  * Extract metadata from the DOM using multiple strategies:
  * - JSON‑LD (schema.org)
+ * - DOM elements (time tags, author links, etc.)
  * - Open Graph / Twitter / standard meta tags
  * - Fallback to <link rel="image_src">
  * Resolves relative image URLs against the base URL.
@@ -134,7 +135,6 @@ function extractMetadata(doc: Document, baseUrl: string): {
   for (const script of scriptTags) {
     try {
       const parsed = JSON.parse(script.textContent || '');
-      // If it's an array, take the first item or find the relevant type
       let data = Array.isArray(parsed) ? parsed.find(item => item['@type']?.includes('Article')) || parsed[0] : parsed;
       if (data && (data['@type']?.includes('Article') || data['@type']?.includes('NewsArticle') || data['@type']?.includes('BlogPosting'))) {
         jsonLdData = data;
@@ -143,26 +143,51 @@ function extractMetadata(doc: Document, baseUrl: string): {
     } catch (_) { /* ignore invalid JSON */ }
   }
 
-  // Extract author from JSON‑LD
+  // 2. Extract author from DOM elements first (then fallback to JSON‑LD, then meta)
   let author: string | null = null;
-  if (jsonLdData) {
+
+  // Try common author patterns: .byline .vcard a, .author a, a.url.fn.n
+  const authorSelectors = [
+    '.byline .vcard a',
+    '.byline a[rel="author"]',
+    '.author a',
+    '.meta-author a',
+    'a.url.fn.n',
+    '.vcard .fn a',
+    '.entry-author a',
+  ];
+  for (const sel of authorSelectors) {
+    const el = doc.querySelector(sel);
+    if (el) {
+      author = el.textContent?.trim() || null;
+      if (author) break;
+    }
+  }
+  // If still not found, look for any <a> inside .byline or .author with text content
+  if (!author) {
+    const byline = doc.querySelector('.byline, .author, .meta-author');
+    if (byline) {
+      const link = byline.querySelector('a');
+      if (link) author = link.textContent?.trim() || null;
+    }
+  }
+
+  // Fallback to JSON‑LD author if DOM didn't give us one
+  if (!author && jsonLdData) {
     if (jsonLdData.author) {
       if (typeof jsonLdData.author === 'string') {
         author = jsonLdData.author;
       } else if (jsonLdData.author.name) {
         author = jsonLdData.author.name;
       } else if (Array.isArray(jsonLdData.author) && jsonLdData.author.length > 0) {
-        const firstAuthor = jsonLdData.author[0];
-        if (typeof firstAuthor === 'string') {
-          author = firstAuthor;
-        } else if (firstAuthor?.name) {
-          author = firstAuthor.name;
-        }
+        const first = jsonLdData.author[0];
+        if (typeof first === 'string') author = first;
+        else if (first?.name) author = first.name;
       }
     }
   }
 
-  // Fallback to meta tags
+  // Fallback to meta tags for author
   if (!author) {
     author =
       meta('meta[name="author"]') ||
@@ -173,11 +198,30 @@ function extractMetadata(doc: Document, baseUrl: string): {
       null;
   }
 
-  // Extract date published
+  // 3. Extract published date
   let published: string | null = null;
-  if (jsonLdData) {
+
+  // First, look for <time> elements with datetime attribute or common classes
+  const timeEls = doc.querySelectorAll('time');
+  for (const timeEl of timeEls) {
+    const datetime = timeEl.getAttribute('datetime');
+    if (datetime) {
+      published = datetime;
+      break;
+    }
+    // Also check for classes like 'entry-date', 'published', 'updated'
+    if (timeEl.classList.contains('entry-date') || timeEl.classList.contains('published')) {
+      published = timeEl.getAttribute('datetime') || timeEl.textContent?.trim() || null;
+      break;
+    }
+  }
+
+  // If no <time> found, try JSON‑LD
+  if (!published && jsonLdData) {
     published = jsonLdData.datePublished || jsonLdData.dateModified || null;
   }
+
+  // Fallback to meta tags
   if (!published) {
     published =
       meta('meta[property="article:published_time"]') ||
@@ -189,8 +233,10 @@ function extractMetadata(doc: Document, baseUrl: string): {
       null;
   }
 
-  // Extract image with robust handling for different JSON‑LD shapes
+  // 4. Extract image
   let image: string | null = null;
+
+  // Try JSON‑LD first
   if (jsonLdData) {
     const rawImage = jsonLdData.image || jsonLdData.thumbnailUrl || null;
     if (rawImage) {
@@ -198,10 +244,8 @@ function extractMetadata(doc: Document, baseUrl: string): {
         image = rawImage;
       } else if (Array.isArray(rawImage) && rawImage.length > 0) {
         const first = rawImage[0];
-        if (typeof first === 'string') {
-          image = first;
-        } else if (typeof first === 'object' && first !== null) {
-          // Some sites use objects with url, contentUrl, etc.
+        if (typeof first === 'string') image = first;
+        else if (typeof first === 'object' && first !== null) {
           image = (first as any).url || (first as any).contentUrl || null;
         }
       } else if (typeof rawImage === 'object' && rawImage !== null) {
@@ -210,7 +254,7 @@ function extractMetadata(doc: Document, baseUrl: string): {
     }
   }
 
-  // Fallback to meta tags
+  // Fallback to meta tags for image
   if (!image) {
     image =
       meta('meta[property="og:image:secure_url"]') ||
