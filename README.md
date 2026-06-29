@@ -101,7 +101,7 @@ Most of these are **optional**. The app works fine without them.
 | Setting | What it does | Type | Do I need it? |
 |---|---|---|---|
 | `TURNSTILE_ENABLED` | Adds a CAPTCHA to stop bots from abusing your reader | Plain text | Only if it's public-facing and you're worried about abuse |
-| `TURNSTILE_SITE_KEY` | Public key for the CAPTCHA (from [Cloudflare Turnstile](https://dash.cloudflare.com)) | Plain text | Only if you enabled Turnstile |
+| `TURNSTILE_SITE_KEY` | Public key for [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) | Plain text | Only if you enabled Turnstile |
 | `TURNSTILE_SECRET_KEY` | Secret key for the CAPTCHA | 🔒 Secret | Only if you enabled Turnstile |
 | `CLOUDFLARE_KV_ENABLED` | Saves fetched articles in the cloud so repeat loads are instant | Plain text | Nice to have, not required |
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID | Plain text | Only if you enabled KV |
