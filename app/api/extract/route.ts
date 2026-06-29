@@ -50,7 +50,8 @@ async function extractArticle(req: Request) {
     return Response.json(article);
   } catch (e) {
     console.error('[api/extract]', e);
-    return err(e instanceof Error ? e.message : 'Extraction failed', 500);
+    // Return a generic message to the client
+    return err('Failed to fetch or parse the article. Please try again later.', 500);
   }
 }
 
