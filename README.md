@@ -26,9 +26,38 @@ You give it a URL. It fetches the article, strips out the ads and noise, and sho
 
 ## Getting it running
 
-You'll need [Node.js](https://nodejs.org) installed and a free [Vercel](https://vercel.com) account.
+Choose the path that suits you:
 
-### Step 1 — Get the code
+- **Browser only** — no terminal, no installs. Deployed in ~5 minutes. *(recommended if you just want to use it)*
+- **Local** — run it on your own machine first, then deploy. *(better if you want to modify the code)*
+
+---
+
+### Option A — Browser only (no installs needed)
+
+You only need a [GitHub](https://github.com) account and a free [Vercel](https://vercel.com) account.
+
+**Step 1 — Fork the repo**
+
+Go to [github.com/braboobssiere/article-reader](https://github.com/braboobssiere/article-reader) and click the **Fork** button (top-right). This copies the project into your own GitHub account.
+
+**Step 2 — Import into Vercel**
+
+1. Go to [vercel.com/new](https://vercel.com/new) and sign in.
+2. Click **Import** next to the forked repo.
+3. Leave all the build settings as-is — Vercel detects everything automatically.
+4. (Optional) Add any environment variables now, or skip and add them later under **Project → Settings → Environment Variables**. See the [Settings table](#settings-environment-variables) below.
+5. Click **Deploy**.
+
+Vercel will give you a public URL (e.g. `your-reader.vercel.app`). Open it, paste an article URL, and you're reading.
+
+---
+
+### Option B — Run it locally
+
+You'll need [Node.js](https://nodejs.org) installed.
+
+**Step 1 — Get the code**
 
 ```bash
 git clone https://github.com/braboobssiere/article-reader.git
@@ -36,37 +65,36 @@ cd article-reader
 npm install
 ```
 
-### Step 2 — Set up your config file
+**Step 2 — Set up your config file**
 
 ```bash
 cp .env.example .env.local
 ```
 
-Open `.env.local` in any text editor. Most of the settings are optional — see the table below.
+Open `.env.local` in any text editor. Most settings are optional — see the [Settings table](#settings-environment-variables) below.
 
-### Step 3 — Try it locally
+**Step 3 — Start it up**
 
 ```bash
 npm run dev
 ```
 
-Then open `http://localhost:3000` in your browser. Paste an article URL and hit read.
+Open `http://localhost:3000` in your browser. Paste an article URL and hit read.
 
-### Step 4 — Put it on the internet (optional)
+**Step 4 — Deploy when ready (optional)**
 
 ```bash
 npx vercel
 ```
 
-Follow the prompts. Vercel will give you a public URL. That's it — your reader is live.
-
-> **Alternative:** Push your code to GitHub and import the repo at [vercel.com/new](https://vercel.com/new). Vercel detects everything automatically.
+Follow the prompts. Vercel will give you a public URL.
 
 ---
 
 ## Settings (environment variables)
 
-These go in your `.env.local` file for local development, or in **Vercel → Project → Settings → Environment Variables** once deployed.
+**Browser-only users:** add these in **Vercel → Project → Settings → Environment Variables**.
+**Local users:** add these to your `.env.local` file, or in Vercel once deployed.
 
 Most of these are **optional**. The app works fine without them.
 
@@ -79,6 +107,7 @@ Most of these are **optional**. The app works fine without them.
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID | Only if you enabled KV |
 | `CLOUDFLARE_KV_NAMESPACE_ID` | The ID of your article cache storage bucket | Only if you enabled KV |
 | `CLOUDFLARE_API_TOKEN` | Secret token that lets the app write to the cache — keep this private | Only if you enabled KV |
+| `CLOUDFLARE_KV_TTL` | How long (in seconds) to keep an article in the cache. Default is `86400` (1 day). Set to `3600` for 1 hour, `604800` for 1 week. | Only if you enabled KV |
 
 > **Tip:** If you just want to try the app, leave all of these blank. It will still work — articles just won't be cached between restarts.
 
@@ -88,7 +117,7 @@ Most of these are **optional**. The app works fine without them.
 
 Without caching, every time someone opens an article, the app re-fetches it from the original site. That's fine for personal use.
 
-If you want faster repeat loads (or you're sharing the reader with others), you can turn on Cloudflare KV caching. Articles will be stored for 24 hours so the second visit is nearly instant.
+If you want faster repeat loads (or you're sharing the reader with others), you can turn on Cloudflare KV caching. Articles will be stored and reused for as long as you configure — the default is 24 hours.
 
 **How to set it up:**
 
@@ -97,6 +126,7 @@ If you want faster repeat loads (or you're sharing the reader with others), you 
 3. Go to **My Profile → API Tokens** → create a token with **Workers KV Storage → Write** permission. Copy the token.
 4. Copy your **Account ID** from the Workers & Pages overview page.
 5. Add all three values to your environment variables and set `CLOUDFLARE_KV_ENABLED=true`.
+6. (Optional) Set `CLOUDFLARE_KV_TTL` to control how long articles are cached, in seconds. Leave it out to use the default of 86400 (1 day).
 
 ---
 
