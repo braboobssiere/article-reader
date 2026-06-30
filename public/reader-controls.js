@@ -29,8 +29,8 @@
   }
 
   function applyWidthPercent(percent) {
-    // clamp between 40% and 95%
-    const clamped = Math.min(95, Math.max(40, percent));
+    // clamp between 40% and 100%
+    const clamped = Math.min(100, Math.max(40, percent));
     document.documentElement.style.setProperty('--prose-max-width', clamped + '%');
     const indicator = document.getElementById('width-indicator');
     if (indicator) indicator.textContent = clamped + '%';
@@ -67,7 +67,7 @@
     save(prefs);
   });
   document.getElementById('width-increase').addEventListener('click', function () {
-    prefs.widthPercent = Math.min(95, prefs.widthPercent + 5);
+    prefs.widthPercent = Math.min(100, prefs.widthPercent + 5);
     prefs.widthPercent = applyWidthPercent(prefs.widthPercent);
     save(prefs);
   });
