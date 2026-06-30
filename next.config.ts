@@ -1,7 +1,5 @@
 import type { NextConfig } from 'next';
 
-const config: NextConfig = {
-  serverExternalPackages: ['re2'],
-};
+const config: NextConfig = {};
 
 export default config;
