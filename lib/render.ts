@@ -139,14 +139,11 @@ export function renderErrorPage(message: string): string {
 }
 
 export function renderArticlePage(article: ArticleData, sourceUrl: string): string {
-  const publishedDate = article.published
-    ? new Intl.DateTimeFormat('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        timeZone: 'UTC',
-      }).format(new Date(article.published))
-    : 'Publishing time not found';
+    const publishedDate = article.published
+      ? new Date(article.published).toLocaleDateString('en-GB', {
+          timeZone: 'UTC',
+        })
+      : 'Publishing time not found';
   const author = article.author ?? 'No author found';
   const shareUrl = `/?url=${encodeURIComponent(sourceUrl)}`;
 
