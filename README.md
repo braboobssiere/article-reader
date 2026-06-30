@@ -1,26 +1,19 @@
 # 📰 Private Article Reader
 
-Paste any article link. Get a clean, ad-free page to read it — no clutter, no distractions, no tracking.
+Paste any article link and get a clean reading view — no clutter, no distractions.
 
-Your own personal Reader Mode — accessible from any device via a link you control. Paste any article and read it without distractions, trackers, or clutter. Works best with news articles and blog posts. Websites that require a login or actively block automated readers may not work.
+Your own Reader Mode, accessible from any device through a link you control.
 
----
-
-## What it does
-
-You give it a URL. It fetches the article, strips out the ads and noise, and shows you just the words and images that matter. You can choose theme, bookmark articles, and share link with friends.
+Works on most public news articles and blog posts. Some websites use anti-bot protection, require JavaScript, a login, or a subscription, and may not be readable.
 
 ---
 
-## Features
+## Features:
 
-- **Clean reading view** — removes ads, banners, sidebars, and cookie pop-ups from any article.
-- **Themes** — switch between Sepia (warm), Light, and Dark. Your preference is remembered.
-- **Font & width controls** — make the text bigger, smaller, wider, or narrower to suit you.
-- **Shareable links** — save or send a link that pre-fills the article URL so it can be reopened easily.
-- **History** — the last 100 article links are saved in your browser so you can reopen them quickly.
-- **Mobile-friendly** — works well on phones and tablets.
-- **Safe by design** — the app can only fetch public web pages. It cannot be tricked into accessing your private network or server internals.
+- Choose between Light, Dark, and Sepia themes.
+- Adjust the font size and reading width.
+- Your last 100 articles are saved locally in your browser.
+- Share links that reopen the article in the reader.
 
 ---
 
@@ -49,7 +42,7 @@ You only need a [GitHub](https://github.com) account and a free [Vercel](https:/
 2. Click **Import** next to the forked repo.
 3. Leave all the build settings as-is — Vercel detects everything automatically.
 4. (Optional) Add any environment variables now, or skip and add them later under **Project → Settings → Environment Variables**. See the [Settings table](#settings-environment-variables) below.
-5. Click **Deploy**.
+5. Click **Deploy** and wait for the build to finish.
 
 Vercel will give you a public URL (e.g. `your-reader.vercel.app`). Open it, paste an article URL, and you're reading.
 
@@ -167,7 +160,7 @@ Most of these are **optional**. The app works fine without them.
 - **Images are loaded directly in your browser** when viewing an article. This means the original source website may see your IP address and browser fingerprint. The server does not proxy images; they are loaded client‑side to preserve bandwidth and performance.
 - It blocks attempts to fetch internal network addresses (like `localhost` or private IP ranges), so it's safe to host for others.
 - Extracted article content is sanitised to remove anything that could run malicious code.
-- Security headers are set automatically when deployed to Vercel.
+- Security headers are set automatically.
 
 ---
 
