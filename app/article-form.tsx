@@ -92,7 +92,7 @@ export default function ArticleForm({
             />
             <label className="flex items-center gap-1 whitespace-nowrap text-sm cursor-pointer">
               <input type="checkbox" name="latest" value="1" />
-              latest
+              LIVE
             </label>
             <button
               type="submit"
