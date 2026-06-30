@@ -149,12 +149,16 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
     const rawHtml = await response.text();
     const { document } = parseHTML(rawHtml);
 
-    const result = await Promise.race([
-      Defuddle(document, url, { markdown: false, debug: false }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
-      ),
-    ]);
+    const result = await new Promise<Awaited<ReturnType<typeof Defuddle>>>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('Defuddle parse timeout')),
+        5000
+      );
+
+      Defuddle(document, url, { markdown: false, debug: false })
+        .then(resolve, reject)
+        .finally(() => clearTimeout(timeout));
+    });
 
     const title = result.title || 'Untitled';
     const content = result.content || '';
