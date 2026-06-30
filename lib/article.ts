@@ -1,4 +1,4 @@
-import defuddle from 'defuddle';
+import Defuddle from 'defuddle';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
 
@@ -125,7 +125,7 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
     const rawHtml = await response.text();
 
     // Parse with Defuddle – it returns an object with title, content, author, date, image, etc.
-    const result = await defuddle(rawHtml, { url });
+    const result = await Defuddle(rawHtml, { url });
 
     // Defuddle might return null/undefined for missing fields – we coerce to null.
     const title = result.title || 'Untitled';
