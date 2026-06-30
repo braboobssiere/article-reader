@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "build:css": "@tailwindcss/cli -i app/globals.css -o public/tailwind.css",
+    "build:css": "npx @tailwindcss/cli -i app/globals.css -o public/tailwind.css",
     "test": "node --experimental-strip-types --test lib/*.test.ts"
   },
   "dependencies": {
