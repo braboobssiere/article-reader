@@ -14,6 +14,7 @@ async function handleArticle(
   turnstileToken: string | null,
   ip: string,
   checkTurnstile: boolean,
+  bypassCache = false,
 ) {
   if (!rawUrl) return errorResponse('Missing URL parameter.', 400);
 
@@ -33,9 +34,11 @@ async function handleArticle(
     if (!ok) return errorResponse('CAPTCHA verification failed. Please try again.', 403);
   }
 
-  const cached = await getCached(validUrl);
-  if (cached)
-    return new Response(renderArticlePage(cached, validUrl), { headers: HTML_HEADERS });
+  if (!bypassCache) {
+    const cached = await getCached(validUrl);
+    if (cached)
+      return new Response(renderArticlePage(cached, validUrl), { headers: HTML_HEADERS });
+  }
 
   try {
     const article = await fetchAndParseArticle(validUrl);
@@ -66,7 +69,8 @@ async function submitArticleForm(req: Request) {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
     '';
-  return handleArticle(url, token, ip, true);
+  const bypassCache = body.get('latest') === '1';
+  return handleArticle(url, token, ip, true, bypassCache);
 }
 
 export { redirectArticleToHome as GET, submitArticleForm as POST };
