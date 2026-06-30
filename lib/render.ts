@@ -53,23 +53,15 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
     body.theme-dark .share-link { background-color: #374151 !important; color: #f9fafb !important; }
     body.theme-dark .share-link:hover { background-color: #4b5563 !important; }
 
-    @media (max-width: 768px) {
-      .max-w-5xl { max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
-      .bg-white.rounded-lg.shadow.p-6 { border-radius: 0 !important; box-shadow: none !important; padding: 0.5rem !important; }
-      .reader-toolbar { border-radius: 0.5rem; flex-wrap: wrap; gap: 0.25rem 0.5rem; padding: 0.5rem; background: rgba(255,255,255,0.8); }
-      body.theme-dark .reader-toolbar { background: rgba(0,0,0,0.8); }
-      .reader-toolbar .group-label { font-size: 0.7rem; }
-      .reader-toolbar button { font-size: 0.8rem; padding: 0.15rem 0.5rem; }
-    }
   </style>
 </head>
 <body>
-  <div class="px-2 font-sans">
+  <div class="px-1 font-sans">
     <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
     </nav>
     <main class="my-8">
-      <div class="bg-white rounded-lg shadow px-2 py-4" style="background-color: var(--bg-color); color: var(--text-color);">
+      <div class="bg-white rounded-lg shadow px-1 py-2" style="background-color: var(--bg-color); color: var(--text-color);">
         <%~ it.body %>
       </div>
     </main>
