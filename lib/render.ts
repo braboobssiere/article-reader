@@ -1,6 +1,5 @@
 import { Eta } from 'eta';
 import type { ArticleData } from './article';
-import '../app/globals.css';
 
 const eta = new Eta({
   cache: process.env.NODE_ENV === 'production',
@@ -12,6 +11,7 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= it.title %></title>
+  <link rel="stylesheet" href="/tailwind.css" />
   <style>
     :root {
       --bg-color: #fbf4e8;
