@@ -142,9 +142,10 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       headers: { 'User-Agent': selectUserAgent() },
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
     const rawHtml = await response.text();
     const { document } = parseHTML(rawHtml);
@@ -179,10 +180,12 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       image: result.image || null,
     };
   } catch (err) {
-    clearTimeout(timeoutId);
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('Request timeout – the website took too long to respond');
     }
+
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
