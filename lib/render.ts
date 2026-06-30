@@ -16,11 +16,18 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
     :root {
       --bg-color: #fbf4e8;
       --text-color: #5b4637;
-      --prose-max-width: 65ch;
+      --prose-max-width: 80%;
       --font-size-base: 18px;
     }
     body { background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.2s, color 0.2s; }
-    .prose { max-width: var(--prose-max-width); margin: 0 auto; line-height: 1.8; font-size: var(--font-size-base); }
+    .article-wrapper {
+      max-width: var(--prose-max-width);
+      margin: 0 auto;
+    }
+    .prose {
+      line-height: 1.8;
+      font-size: var(--font-size-base);
+    }
     .prose p { margin-bottom: 1.2em; }
     .prose img { margin: 2em auto; border-radius: 0.5rem; }
     .prose h2, .prose h3 { font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; }
@@ -53,12 +60,11 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
       body.theme-dark .reader-toolbar { background: rgba(0,0,0,0.8); }
       .reader-toolbar .group-label { font-size: 0.7rem; }
       .reader-toolbar button { font-size: 0.8rem; padding: 0.15rem 0.5rem; }
-      .reader-toolbar .width-group { display: none !important; }
     }
   </style>
 </head>
 <body>
-  <div class="max-w-5xl mx-auto px-4 font-sans">
+  <div class="px-4 font-sans">
     <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
     </nav>
@@ -74,20 +80,11 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
 
 const ARTICLE_TEMPLATE = `
 <a href="<%= it.sourceUrl %>" target="_blank" rel="noopener noreferrer"
-   class="source-link flex items-center justify-center gap-2 bg-yellow-500 text-black text-center py-1 rounded font-bold underline mb-6">
+   class="source-link flex items-center justify-center gap-2 bg-yellow-500 text-black text-center py-1 rounded font-bold underline mb-4">
   📄 Read at source
 </a>
-<h1 class="text-2xl md:text-3xl font-bold text-center my-4"><%= it.article.title %></h1>
 
-<% if (it.article.image && !it.article.content.includes(it.article.image)) { %>
-  <img src="<%= it.article.image %>" alt="<%= it.article.title %>" class="w-full mx-auto my-5 rounded shadow" />
-<% } %>
-
-<div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
-  <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
-  <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
-</div>
-
+<!-- Toolbar – now directly below the source link -->
 <div class="reader-toolbar" id="reader-controls">
   <span class="group-label">Theme</span>
   <button data-theme="sepia" class="active">Sepia</button>
@@ -98,14 +95,28 @@ const ARTICLE_TEMPLATE = `
   <button id="font-increase" title="Increase font size">A+</button>
   <span class="width-group">
     <span class="group-label ml-2">Width</span>
-    <button data-width="narrow">Narrow</button>
-    <button data-width="medium" class="active">Medium</button>
-    <button data-width="wide">Wide</button>
+    <button id="width-decrease" title="Decrease width by 5%">−</button>
+    <span id="width-indicator" class="text-sm opacity-70 mx-1">80%</span>
+    <button id="width-increase" title="Increase width by 5%">+</button>
   </span>
 </div>
 
-<div class="prose mx-auto my-0 leading-relaxed" id="article-content">
-  <%~ it.article.content %>
+<!-- Wrapper that obeys the width setting -->
+<div class="article-wrapper" style="max-width: var(--prose-max-width); margin: 0 auto;">
+  <h1 class="text-2xl md:text-3xl font-bold text-center my-4"><%= it.article.title %></h1>
+
+  <% if (it.article.image && !it.article.content.includes(it.article.image)) { %>
+    <img src="<%= it.article.image %>" alt="<%= it.article.title %>" class="w-full mx-auto my-5 rounded shadow" />
+  <% } %>
+
+  <div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
+    <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
+    <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
+  </div>
+
+  <div class="prose" id="article-content">
+    <%~ it.article.content %>
+  </div>
 </div>
 
 <div class="mt-8 pt-6 text-center text-sm" style="border-top: 1px solid rgba(0,0,0,0.1);">
