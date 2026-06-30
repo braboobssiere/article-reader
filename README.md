@@ -180,4 +180,5 @@ Most of these are **optional**. The app works fine without them.
 | [Eta](https://eta.js.org/) | Lightweight templating engine for rendering HTML pages |
 | [ssrf-guard](https://github.com/jonathanong/ssrf-guard) | Blocks requests to internal/private addresses |
 | [Cloudflare KV](https://developers.cloudflare.com/kv/) | Optional cloud storage for caching articles |
+| Brotli | Compresses cached article data – reduces memory usage and KV storage/bandwidth |
 | Tailwind CSS | Handles the styling |
