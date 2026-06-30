@@ -39,7 +39,7 @@ You only need a [GitHub](https://github.com) account and a free [Vercel](https:/
 
 **Step 1 — Fork the repo**
 
-Go to [github.com/braboobssiere/article-reader](https://github.com/braboobssiere/article-reader) and click the **Fork** button (top-right). This copies the project into your own GitHub account.
+[Click here](https://github.com/braboobssiere/article-reader/fork). This copies the project into your own GitHub account.
 
 **Step 2 — Import into Vercel**
 
