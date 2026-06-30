@@ -1,6 +1,6 @@
 (function () {
   const KEY = 'readerPreferences';
-  const defaults = { theme: 'sepia', fontSize: 18, width: 'medium' };
+  const defaults = { theme: 'sepia', fontSize: 18, widthPercent: 80 };
 
   function load() {
     try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
@@ -28,18 +28,21 @@
     document.documentElement.style.setProperty('--font-size-base', size + 'px');
   }
 
-  function applyWidth(width) {
-    const widths = { narrow: '50ch', medium: '65ch', wide: '90ch' };
-    document.documentElement.style.setProperty('--prose-max-width', widths[width] || '65ch');
-    document.querySelectorAll('[data-width]').forEach(b =>
-      b.classList.toggle('active', b.dataset.width === width));
+  function applyWidthPercent(percent) {
+    // clamp between 40% and 95%
+    const clamped = Math.min(95, Math.max(40, percent));
+    document.documentElement.style.setProperty('--prose-max-width', clamped + '%');
+    const indicator = document.getElementById('width-indicator');
+    if (indicator) indicator.textContent = clamped + '%';
+    return clamped;
   }
 
   const prefs = load();
   applyTheme(prefs.theme);
   applyFont(prefs.fontSize);
-  applyWidth(prefs.width);
+  prefs.widthPercent = applyWidthPercent(prefs.widthPercent);
 
+  // Theme buttons
   document.querySelectorAll('[data-theme]').forEach(btn =>
     btn.addEventListener('click', function () {
       prefs.theme = this.dataset.theme;
@@ -47,6 +50,7 @@
       save(prefs);
     }));
 
+  // Font buttons
   document.getElementById('font-decrease').addEventListener('click', function () {
     prefs.fontSize = Math.max(12, prefs.fontSize - 2);
     applyFont(prefs.fontSize); save(prefs);
@@ -56,12 +60,19 @@
     applyFont(prefs.fontSize); save(prefs);
   });
 
-  document.querySelectorAll('[data-width]').forEach(btn =>
-    btn.addEventListener('click', function () {
-      prefs.width = this.dataset.width;
-      applyWidth(prefs.width); save(prefs);
-    }));
+  // Width +/− buttons
+  document.getElementById('width-decrease').addEventListener('click', function () {
+    prefs.widthPercent = Math.max(40, prefs.widthPercent - 5);
+    prefs.widthPercent = applyWidthPercent(prefs.widthPercent);
+    save(prefs);
+  });
+  document.getElementById('width-increase').addEventListener('click', function () {
+    prefs.widthPercent = Math.min(95, prefs.widthPercent + 5);
+    prefs.widthPercent = applyWidthPercent(prefs.widthPercent);
+    save(prefs);
+  });
 
+  // Share button
   const shareBtn = document.getElementById('share-btn');
   if (shareBtn) {
     shareBtn.addEventListener('click', function () {
