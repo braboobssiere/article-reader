@@ -139,6 +139,7 @@ If you want faster repeat loads (or you're sharing the reader with others), you 
 ## Settings (environment variables)
 
 **Browser-only users:** add these in **Vercel → Project → Settings → Environment Variables**.
+
 **Local users:** add these to your `.env.local` file, or in Vercel once deployed.
 
 Most of these are **optional**. The app works fine without them.
