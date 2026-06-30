@@ -16,7 +16,7 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
     :root {
       --bg-color: #fbf4e8;
       --text-color: #5b4637;
-      --prose-max-width: 65ch;
+      --prose-max-width: 80%;
       --font-size-base: 18px;
     }
     body { background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.2s, color 0.2s; }
@@ -58,7 +58,7 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <div class="max-w-5xl mx-auto px-4 font-sans">
+  <div class="px-4 font-sans">
     <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
     </nav>
@@ -98,9 +98,9 @@ const ARTICLE_TEMPLATE = `
   <button id="font-increase" title="Increase font size">A+</button>
   <span class="width-group">
     <span class="group-label ml-2">Width</span>
-    <button data-width="narrow">Narrow</button>
-    <button data-width="medium" class="active">Medium</button>
-    <button data-width="wide">Wide</button>
+    <button id="width-decrease" title="Decrease width by 5%">−</button>
+    <span id="width-indicator" class="text-sm opacity-70 mx-1">80%</span>
+    <button id="width-increase" title="Increase width by 5%">+</button>
   </span>
 </div>
 
