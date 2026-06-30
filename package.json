@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "npm run build:css && next build",
     "build:css": "npx @tailwindcss/cli -i app/globals.css -o public/tailwind.css",
+    "start": "next start",
     "test": "node --experimental-strip-types --test lib/*.test.ts"
   },
   "dependencies": {
