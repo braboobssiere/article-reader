@@ -1,4 +1,4 @@
-import Defuddle from 'defuddle';
+import defuddle from 'defuddle';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
 
