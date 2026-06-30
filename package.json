@@ -27,7 +27,6 @@
     "ssrf-guard": "^0.4.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.2",
     "@tailwindcss/cli": "^4.3.2",
     "@types/node": "^26.0.1",
     "@types/react": "^19.2.17",
