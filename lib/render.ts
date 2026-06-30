@@ -74,20 +74,11 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
 
 const ARTICLE_TEMPLATE = `
 <a href="<%= it.sourceUrl %>" target="_blank" rel="noopener noreferrer"
-   class="source-link flex items-center justify-center gap-2 bg-yellow-500 text-black text-center py-1 rounded font-bold underline mb-6">
+   class="source-link flex items-center justify-center gap-2 bg-yellow-500 text-black text-center py-1 rounded font-bold underline mb-4">
   📄 Read at source
 </a>
-<h1 class="text-2xl md:text-3xl font-bold text-center my-4"><%= it.article.title %></h1>
 
-<% if (it.article.image && !it.article.content.includes(it.article.image)) { %>
-  <img src="<%= it.article.image %>" alt="<%= it.article.title %>" class="w-full mx-auto my-5 rounded shadow" />
-<% } %>
-
-<div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
-  <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
-  <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
-</div>
-
+<!-- Toolbar – now directly below the source link -->
 <div class="reader-toolbar" id="reader-controls">
   <span class="group-label">Theme</span>
   <button data-theme="sepia" class="active">Sepia</button>
@@ -104,8 +95,22 @@ const ARTICLE_TEMPLATE = `
   </span>
 </div>
 
-<div class="prose mx-auto my-0 leading-relaxed" id="article-content">
-  <%~ it.article.content %>
+<!-- Wrapper that obeys the width setting -->
+<div class="article-wrapper" style="max-width: var(--prose-max-width); margin: 0 auto;">
+  <h1 class="text-2xl md:text-3xl font-bold text-center my-4"><%= it.article.title %></h1>
+
+  <% if (it.article.image && !it.article.content.includes(it.article.image)) { %>
+    <img src="<%= it.article.image %>" alt="<%= it.article.title %>" class="w-full mx-auto my-5 rounded shadow" />
+  <% } %>
+
+  <div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
+    <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
+    <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
+  </div>
+
+  <div class="prose" id="article-content">
+    <%~ it.article.content %>
+  </div>
 </div>
 
 <div class="mt-8 pt-6 text-center text-sm" style="border-top: 1px solid rgba(0,0,0,0.1);">
