@@ -80,7 +80,7 @@ export default function ArticleForm({
           onSubmit={handleSubmit}
           className="space-y-3"
         >
-          <div className="flex flex-row gap-2">
+          <div className="flex flex-row items-center gap-2">
             <input
               type="url"
               name="url"
@@ -90,6 +90,10 @@ export default function ArticleForm({
               placeholder="Enter article URL (e.g. https://example.com/news)"
               className="flex-1 min-w-0 border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
             />
+            <label className="flex items-center gap-1 whitespace-nowrap text-sm cursor-pointer">
+              <input type="checkbox" name="latest" value="1" />
+              latest
+            </label>
             <button
               type="submit"
               disabled={turnstileEnabled && !isVerified}
