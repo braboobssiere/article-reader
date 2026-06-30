@@ -161,6 +161,7 @@ Most of these are **optional**. The app works fine without them.
 ## Privacy & safety notes
 
 - The app only fetches **public URLs** — it cannot access anything that requires a login.
+- **Images are loaded directly in your browser** when viewing an article. This means the original source website may see your IP address and browser fingerprint. The server does not proxy images; they are loaded client‑side to preserve bandwidth and performance.
 - It blocks attempts to fetch internal network addresses (like `localhost` or private IP ranges), so it's safe to host for others.
 - Extracted article content is sanitised to remove anything that could run malicious code.
 - Security headers are set automatically when deployed to Vercel.
