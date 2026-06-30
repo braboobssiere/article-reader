@@ -60,7 +60,6 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
       body.theme-dark .reader-toolbar { background: rgba(0,0,0,0.8); }
       .reader-toolbar .group-label { font-size: 0.7rem; }
       .reader-toolbar button { font-size: 0.8rem; padding: 0.15rem 0.5rem; }
-      .reader-toolbar .width-group { display: none !important; }
     }
   </style>
 </head>
