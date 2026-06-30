@@ -10,13 +10,9 @@
     "test": "node --experimental-strip-types --test lib/*.test.ts"
   },
   "dependencies": {
-    "@mozilla/readability": "^0.6.0",
-    "linkedom": "^0.18.12",
-    "metascraper": "^5.51.1",
-    "metascraper-author": "^5.51.1",
-    "metascraper-date": "^5.51.1",
-    "metascraper-image": "^5.51.1",
     "next": "^16.2.9",
+    "linkedom": "^0.18.12",
+    "defuddle": "^0.19.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sanitize-html": "^2.17.5",

@@ -1,11 +1,7 @@
-import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
+import { Defuddle } from 'defuddle/node';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
-import metascraper from 'metascraper';
-import metascraperAuthor from 'metascraper-author';
-import metascraperImage from 'metascraper-image';
-import metascraperDate from 'metascraper-date';
 
 export interface ArticleData {
   title: string;
@@ -15,15 +11,6 @@ export interface ArticleData {
   image: string | null;
 }
 
-// metascraper instance
-const scraper = metascraper([
-  metascraperAuthor(),
-  metascraperImage(),
-  metascraperDate(),
-]);
-
-// Short-lived in-memory cache – useful mainly for burst traffic on the same instance.
-// In Vercel serverless, instances are ephemeral and spin down quickly.
 const memoryCache = new Map<string, { data: ArticleData; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
 
@@ -97,7 +84,6 @@ export async function getCached(url: string): Promise<ArticleData | null> {
     const cfData = await getFromCloudflareKV(url);
     if (cfData) return cfData;
   }
-
   const entry = memoryCache.get(url);
   if (entry && entry.expires > Date.now()) return entry.data;
   memoryCache.delete(url);
@@ -135,41 +121,36 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const rawHtml = await response.text();
-
-    // 1. Extract metadata with metascraper (uses its own parser)
-    const meta = await scraper({ html: rawHtml, url });
-
-    // 2. Parse with linkedom for Readability
     const { document } = parseHTML(rawHtml);
 
-    // Run Readability with a timeout
-    const parsed = await Promise.race([
-      Promise.resolve(new Readability(document).parse()),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Parse timeout')), 5000)),
+    const result = await Promise.race([
+      Defuddle(document, url, { markdown: false, debug: false }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
+      ),
     ]);
 
-    if (!parsed?.content || parsed.content.trim().length < 50) {
+    const title = result.title || 'Untitled';
+    const content = result.content || '';
+
+    if (content.trim().length < 50) {
       throw new Error('Could not extract article content');
     }
 
-    // Sanitize with a timeout
-    const content = await Promise.race([
-      Promise.resolve(sanitizeHtml(parsed.content, {
-        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
-        allowedAttributes: {
-          ...sanitizeHtml.defaults.allowedAttributes,
-          img: ['src', 'alt', 'width', 'height'],
-        },
-      })),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sanitize timeout')), 5000)),
-    ]);
+    const sanitizedContent = sanitizeHtml(content, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        img: ['src', 'alt', 'width', 'height'],
+      },
+    });
 
     return {
-      title: parsed.title || 'Untitled',
-      content,
-      author: meta.author || parsed.byline || null,
-      published: meta.date || null,
-      image: meta.image || null,
+      title,
+      content: sanitizedContent,
+      author: result.author || null,
+      published: result.published || null,
+      image: result.image || null,
     };
   } catch (err) {
     clearTimeout(timeoutId);
