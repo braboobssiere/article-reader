@@ -2,13 +2,13 @@
 
 Paste any article link. Get a clean, ad-free page to read it — no clutter, no distractions, no tracking.
 
-Your own personal Reader Mode — accessible from any device via a link you control. Paste any article and read it without distractions, trackers, or clutter. Works on most websites, though some may block automated requests.
+Your own personal Reader Mode — accessible from any device via a link you control. Paste any article and read it without distractions, trackers, or clutter. Works best with news articles and blog posts. Websites that require a login or actively block automated readers may not work.
 
 ---
 
 ## What it does
 
-You give it a URL. It fetches the article, strips out the ads and noise, and shows you just the words and images that matter. You can customise how it looks, bookmark articles, and even share clean links with friends.
+You give it a URL. It fetches the article, strips out the ads and noise, and shows you just the words and images that matter. You can choose theme, bookmark articles, and share link with friends.
 
 ---
 
@@ -17,8 +17,8 @@ You give it a URL. It fetches the article, strips out the ads and noise, and sho
 - **Clean reading view** — removes ads, banners, sidebars, and cookie pop-ups from any article.
 - **Themes** — switch between Sepia (warm), Light, and Dark. Your preference is remembered.
 - **Font & width controls** — make the text bigger, smaller, wider, or narrower to suit you.
-- **Shareable links** — every article gets a clean link you can bookmark or send to someone (e.g. `yoursite.com/article?url=…`).
-- **History** — your last 100 articles are saved so you can jump back quickly.
+- **Shareable links** — save or send a link that pre-fills the article URL so it can be reopened easily.
+- **History** — the last 100 article links are saved in your browser so you can reopen them quickly.
 - **Mobile-friendly** — works well on phones and tablets.
 - **Safe by design** — the app can only fetch public web pages. It cannot be tricked into accessing your private network or server internals.
 
@@ -26,20 +26,22 @@ You give it a URL. It fetches the article, strips out the ads and noise, and sho
 
 ## Getting it running
 
-Choose the path that suits you:
+Choose one:
 
-- **Browser only** — no terminal, no installs. Deployed in ~5 minutes. *(recommended if you just want to use it)*
-- **Local** — run it on your own machine first, then deploy. *(better if you want to modify the code)*
+- **Browser** — No coding required (recommended)
+Deploy it from GitHub to Vercel in about five minutes.
+- **Local** — Run it on your computer
+Best if you want to change the code first.
 
 ---
 
-### Option A — Browser only (no installs needed)
+### Option A — Browser only
 
 You only need a [GitHub](https://github.com) account and a free [Vercel](https://vercel.com) account.
 
-**Step 1 — Fork the repo**
+**Step 1 — Make your own copy of the project**
 
-[Click here](https://github.com/braboobssiere/article-reader/fork). This copies the project into your own GitHub account.
+[Click Fork](https://github.com/braboobssiere/article-reader/fork). This creates your own copy of the project in your GitHub account. Nothing changes in the original project.
 
 **Step 2 — Import into Vercel**
 
@@ -115,9 +117,9 @@ That's it. The CAPTCHA will appear on the home page. Users only need to verify o
 
 ## Optional: Speed up repeat visits with caching
 
-Without caching, every time someone opens an article, the app re-fetches it from the original site. That's fine for personal use.
+By default the app downloads the article every time it's opened.
 
-If you want faster repeat loads (or you're sharing the reader with others), you can turn on Cloudflare KV caching. Articles will be stored and reused for as long as you configure — the default is 24 hours.
+Enabling Cloudflare KV stores a copy for a while, making repeat visits much faster and reducing bandwidth.
 
 **How to set it up:**
 
@@ -132,7 +134,7 @@ If you want faster repeat loads (or you're sharing the reader with others), you 
    - `CLOUDFLARE_KV_ENABLED=true` (Plain text)
    - (Optional) Set `CLOUDFLARE_KV_TTL` to control how long articles are cached, in seconds. Default is `86400` (1 day) and minimum is `3600` (1 hour).
 
-> **Tip:** You can bypass the cache and fetch the latest version of an article by checking the **"LIVE"** checkbox when submitting a URL. This forces a fresh fetch and updates the cached copy.
+> **Tip:** LIVE checkbox will bypasses the cache and fetches the latest version of the article.
 
 ---
 
@@ -171,7 +173,7 @@ Most of these are **optional**. The app works fine without them.
 
 ## Tech used
 
-| Piece | What it is |
+| Tech | What it is |
 |---|---|
 | Next.js | The web framework that runs everything |
 | [defuddle](https://github.com/kepano/defuddle) | Article extraction (handles title, author, date, image, and content in one pass) |
