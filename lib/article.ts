@@ -96,7 +96,7 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
         Authorization: `Bearer ${CF_API_TOKEN}`,
         'Content-Type': 'application/octet-stream',
       },
-      body: compressed,
+      body: new Uint8Array(compressed), // <-- Fix: convert to Uint8Array
     });
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`);
