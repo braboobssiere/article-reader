@@ -1,11 +1,6 @@
-import { Readability } from '@mozilla/readability';
-import { parseHTML } from 'linkedom';
+import { defuddle } from 'defuddle';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
-import metascraper from 'metascraper';
-import metascraperAuthor from 'metascraper-author';
-import metascraperImage from 'metascraper-image';
-import metascraperDate from 'metascraper-date';
 
 export interface ArticleData {
   title: string;
@@ -15,15 +10,7 @@ export interface ArticleData {
   image: string | null;
 }
 
-// metascraper instance
-const scraper = metascraper([
-  metascraperAuthor(),
-  metascraperImage(),
-  metascraperDate(),
-]);
-
-// Short-lived in-memory cache – useful mainly for burst traffic on the same instance.
-// In Vercel serverless, instances are ephemeral and spin down quickly.
+// ----- caching (unchanged) -----
 const memoryCache = new Map<string, { data: ArticleData; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
 
@@ -97,7 +84,6 @@ export async function getCached(url: string): Promise<ArticleData | null> {
     const cfData = await getFromCloudflareKV(url);
     if (cfData) return cfData;
   }
-
   const entry = memoryCache.get(url);
   if (entry && entry.expires > Date.now()) return entry.data;
   memoryCache.delete(url);
@@ -113,6 +99,7 @@ export async function setCached(url: string, data: ArticleData): Promise<void> {
   memoryCache.set(url, { data, expires: Date.now() + MEMORY_TTL_MS });
 }
 
+// ----- User-Agent (unchanged) -----
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -121,6 +108,7 @@ function selectUserAgent(): string {
   return ua ?? DEFAULT_UA;
 }
 
+// ----- NEW fetchAndParseArticle using Defuddle -----
 export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
@@ -136,40 +124,32 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
 
     const rawHtml = await response.text();
 
-    // 1. Extract metadata with metascraper (uses its own parser)
-    const meta = await scraper({ html: rawHtml, url });
+    // Parse with Defuddle – it returns an object with title, content, author, date, image, etc.
+    const result = await defuddle(rawHtml, { url });
 
-    // 2. Parse with linkedom for Readability
-    const { document } = parseHTML(rawHtml);
+    // Defuddle might return null/undefined for missing fields – we coerce to null.
+    const title = result.title || 'Untitled';
+    const content = result.content || '';
 
-    // Run Readability with a timeout
-    const parsed = await Promise.race([
-      Promise.resolve(new Readability(document).parse()),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Parse timeout')), 5000)),
-    ]);
-
-    if (!parsed?.content || parsed.content.trim().length < 50) {
+    if (content.trim().length < 50) {
       throw new Error('Could not extract article content');
     }
 
-    // Sanitize with a timeout
-    const content = await Promise.race([
-      Promise.resolve(sanitizeHtml(parsed.content, {
-        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
-        allowedAttributes: {
-          ...sanitizeHtml.defaults.allowedAttributes,
-          img: ['src', 'alt', 'width', 'height'],
-        },
-      })),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sanitize timeout')), 5000)),
-    ]);
+    // Sanitize the content to remove dangerous tags/attributes.
+    const sanitizedContent = sanitizeHtml(content, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        img: ['src', 'alt', 'width', 'height'],
+      },
+    });
 
     return {
-      title: parsed.title || 'Untitled',
-      content,
-      author: meta.author || parsed.byline || null,
-      published: meta.date || null,
-      image: meta.image || null,
+      title,
+      content: sanitizedContent,
+      author: result.author || null,
+      published: result.date || null,   // Defuddle returns a date string (e.g., ISO 8601)
+      image: result.image || null,
     };
   } catch (err) {
     clearTimeout(timeoutId);
