@@ -1,4 +1,5 @@
-import Defuddle from 'defuddle';
+import { parseHTML } from 'linkedom';
+import { Defuddle } from 'defuddle/node';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
 
@@ -10,7 +11,6 @@ export interface ArticleData {
   image: string | null;
 }
 
-// ----- caching (unchanged) -----
 const memoryCache = new Map<string, { data: ArticleData; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
 
@@ -99,7 +99,6 @@ export async function setCached(url: string, data: ArticleData): Promise<void> {
   memoryCache.set(url, { data, expires: Date.now() + MEMORY_TTL_MS });
 }
 
-// ----- User-Agent (unchanged) -----
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -108,7 +107,6 @@ function selectUserAgent(): string {
   return ua ?? DEFAULT_UA;
 }
 
-// ----- NEW fetchAndParseArticle using Defuddle -----
 export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10_000);
@@ -123,11 +121,15 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const rawHtml = await response.text();
+    const { document } = parseHTML(rawHtml);
 
-    // Parse with Defuddle – it returns an object with title, content, author, date, image, etc.
-    const result = await Defuddle(rawHtml, { url });
+    const result = await Promise.race([
+      Defuddle(document, url, { markdown: false, debug: false }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
+      ),
+    ]);
 
-    // Defuddle might return null/undefined for missing fields – we coerce to null.
     const title = result.title || 'Untitled';
     const content = result.content || '';
 
@@ -135,7 +137,6 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       throw new Error('Could not extract article content');
     }
 
-    // Sanitize the content to remove dangerous tags/attributes.
     const sanitizedContent = sanitizeHtml(content, {
       allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
       allowedAttributes: {
@@ -148,7 +149,7 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       title,
       content: sanitizedContent,
       author: result.author || null,
-      published: result.date || null,   // Defuddle returns a date string (e.g., ISO 8601)
+      published: result.published || null,
       image: result.image || null,
     };
   } catch (err) {
