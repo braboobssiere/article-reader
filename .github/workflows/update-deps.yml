@@ -27,9 +27,7 @@ jobs:
         run: |
           npx npm-check-updates -u
           npm install
-
-      - name: Verify build
-        run: npm run build:css && npm run build
+          npm run build
 
       - name: Commit changes
         run: |
