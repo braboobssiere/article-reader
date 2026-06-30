@@ -26,17 +26,43 @@ export default function ArticleForm({
 }) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [url, setUrl] = useState(initialUrl ?? '');
+  const [isVerified, setIsVerified] = useState(!turnstileEnabled); // verified if no CAPTCHA needed
 
+  // Register the Turnstile callback globally
+  useEffect(() => {
+    if (turnstileEnabled) {
+      // Define the callback that the Turnstile widget will call on success
+      (window as any).turnstileCallback = () => {
+        setIsVerified(true);
+      };
+      // Clean up when component unmounts
+      return () => {
+        delete (window as any).turnstileCallback;
+      };
+    }
+  }, [turnstileEnabled]);
+
+  // Load history from localStorage on mount
   useEffect(() => {
     setHistory(readHistory());
   }, []);
 
-  function handleSubmit() {
-    if (!url) return;
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (turnstileEnabled && !isVerified) {
+      e.preventDefault(); // stop form submission
+      alert('Please complete the CAPTCHA verification first.');
+      return;
+    }
+    // Save history
+    if (!url) {
+      e.preventDefault();
+      return;
+    }
     const entry = { link: url, date: new Date().toISOString() };
     const next = [entry, ...readHistory().filter(e => e.link !== url)].slice(0, HISTORY_LIMIT);
     localStorage.setItem(KEY, JSON.stringify(next));
-    setHistory(next); // Update UI immediately
+    setHistory(next);
+    // let the form submit natively
   }
 
   function clearHistory() {
@@ -48,14 +74,12 @@ export default function ArticleForm({
     <>
       {/* Form section */}
       <div className="bg-white rounded-lg shadow p-6">
-        {/* intentional: let the browser POST natively; onSubmit only persists history */}
         <form
           action="/article"
           method="post"
           onSubmit={handleSubmit}
           className="space-y-3"
         >
-          {/* Row 1: input + small button */}
           <div className="flex flex-row gap-2">
             <input
               type="url"
@@ -68,20 +92,32 @@ export default function ArticleForm({
             />
             <button
               type="submit"
-              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition whitespace-nowrap text-sm"
+              disabled={turnstileEnabled && !isVerified}
+              className={`
+                px-4 py-2 rounded transition whitespace-nowrap text-sm
+                ${turnstileEnabled && !isVerified
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-black text-white hover:bg-gray-800'
+                }
+              `}
             >
               Load Article
             </button>
           </div>
 
-          {/* Row 2: Cloudflare Turnstile (only when enabled) */}
+          {/* Cloudflare Turnstile – only when enabled */}
           {turnstileEnabled && (
-            <div className="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
+            <div
+              className="cf-turnstile"
+              data-sitekey={siteKey}
+              data-theme="light"
+              data-callback="turnstileCallback"
+            />
           )}
         </form>
       </div>
 
-      {/* History section */}
+      {/* History section – unchanged */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between gap-4 mb-4">
           <h2 className="text-lg font-bold">History</h2>
