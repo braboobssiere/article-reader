@@ -16,7 +16,6 @@ export interface ArticleData {
   image: string | null;
 }
 
-// ── In‑memory cache ──────────────────────────────────────────────────────
 const memoryCache = new Map<string, { data: Buffer; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
 
@@ -27,7 +26,6 @@ setInterval(() => {
   }
 }, MEMORY_TTL_MS).unref();
 
-// ── Cloudflare KV config ────────────────────────────────────────────────
 const CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID || '';
@@ -46,7 +44,6 @@ function kvUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
 }
 
-// ── Compression helpers ──────────────────────────────────────────────────
 async function compressData(data: ArticleData): Promise<Buffer> {
   const json = JSON.stringify(data);
   return await compress(json);
@@ -57,7 +54,6 @@ async function decompressData(buffer: Buffer): Promise<ArticleData> {
   return JSON.parse(json.toString('utf-8'));
 }
 
-// ── Cloudflare KV functions ─────────────────────────────────────────────
 async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
   if (!CF_KV_ENABLED) return null;
   try {
@@ -96,7 +92,7 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
         Authorization: `Bearer ${CF_API_TOKEN}`,
         'Content-Type': 'application/octet-stream',
       },
-      body: new Uint8Array(compressed), // <-- Fix: convert to Uint8Array
+      body: new Uint8Array(compressed),
     });
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`);
@@ -106,7 +102,6 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
   }
 }
 
-// ── Public cache interface ──────────────────────────────────────────────
 export async function getCached(url: string): Promise<ArticleData | null> {
   if (CF_KV_ENABLED) {
     const cfData = await getFromCloudflareKV(url);
@@ -130,7 +125,6 @@ export async function setCached(url: string, data: ArticleData): Promise<void> {
   memoryCache.set(url, { data: compressed, expires: Date.now() + MEMORY_TTL_MS });
 }
 
-// ── Article fetching ─────────────────────────────────────────────────────
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
