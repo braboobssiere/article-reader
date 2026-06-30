@@ -142,23 +142,20 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       headers: { 'User-Agent': selectUserAgent() },
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
     const rawHtml = await response.text();
     const { document } = parseHTML(rawHtml);
 
-    const result = await new Promise<Awaited<ReturnType<typeof Defuddle>>>((resolve, reject) => {
-      const timeout = setTimeout(
-        () => reject(new Error('Defuddle parse timeout')),
-        5000
-      );
-
-      Defuddle(document, url, { markdown: false, debug: false })
-        .then(resolve, reject)
-        .finally(() => clearTimeout(timeout));
-    });
+    const result = await Promise.race([
+      Defuddle(document, url, { markdown: false, debug: false }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
+      ),
+    ]);
 
     const title = result.title || 'Untitled';
     const content = result.content || '';
@@ -183,10 +180,12 @@ export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
       image: result.image || null,
     };
   } catch (err) {
-    clearTimeout(timeoutId);
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('Request timeout – the website took too long to respond');
     }
+
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
