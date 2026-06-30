@@ -104,7 +104,7 @@ const ARTICLE_TEMPLATE = `
   </span>
 </div>
 
-<div class="prose max-w-6xl mx-auto my-0 leading-relaxed" id="article-content">
+<div class="prose mx-auto my-0 leading-relaxed" id="article-content">
   <%~ it.article.content %>
 </div>
 
