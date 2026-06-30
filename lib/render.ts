@@ -20,7 +20,14 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
       --font-size-base: 18px;
     }
     body { background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.2s, color 0.2s; }
-    .prose { max-width: var(--prose-max-width); margin: 0 auto; line-height: 1.8; font-size: var(--font-size-base); }
+    .article-wrapper {
+      max-width: var(--prose-max-width);
+      margin: 0 auto;
+    }
+    .prose {
+      line-height: 1.8;
+      font-size: var(--font-size-base);
+    }
     .prose p { margin-bottom: 1.2em; }
     .prose img { margin: 2em auto; border-radius: 0.5rem; }
     .prose h2, .prose h3 { font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; }
