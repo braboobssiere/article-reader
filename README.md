@@ -2,7 +2,7 @@
 
 Paste any article link. Get a clean, ad-free page to read it — no clutter, no distractions, no tracking.
 
-Your own personal "Reader Mode" that works on any website* (not really.. some site hate AI/scraper which may block us too), accessible from any device via a link you control.
+Your own personal Reader Mode — accessible from any device via a link you control. Paste any article and read it without distractions, trackers, or clutter. Works on most websites, though some may block automated requests.
 
 ---
 
@@ -91,6 +91,51 @@ Follow the prompts. Vercel will give you a public URL.
 
 ---
 
+## Optional: Protect the reader from bots with Turnstile
+
+If you deploy this app publicly, bots and automated scrapers may repeatedly hit the `/article` endpoint. This wastes bandwidth, increases your Vercel costs, and can get your server IP rate‑limited by news sites.
+
+[Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) adds a simple, privacy‑preserving CAPTCHA to the submission form. Legitimate human users solve it effortlessly (no puzzles or images – just a single click), while automated requests are blocked before they reach the article fetcher.
+
+**How to set it up:**
+
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com/) → **Turnstile**.
+2. Click **Add a site** and give it a name (e.g. `article-reader`).
+3. Add your domain(s) to the **Domain** field (e.g. `vercel.app`, or `localhost` for local testing).
+4. Copy the **Site Key** and **Secret Key**.
+5. Choose security level and pre‑cache options.
+6. Add these values to your environment variables:
+   - `TURNSTILE_SITE_KEY=your-site-key` (Plain text)
+   - `TURNSTILE_SECRET_KEY=your-secret-key` (🔒 Secret)
+   - `TURNSTILE_ENABLED=true` (Plain text)
+
+That's it. The CAPTCHA will appear on the home page. Users only need to verify once per session.
+
+---
+
+## Optional: Speed up repeat visits with caching
+
+Without caching, every time someone opens an article, the app re-fetches it from the original site. That's fine for personal use.
+
+If you want faster repeat loads (or you're sharing the reader with others), you can turn on Cloudflare KV caching. Articles will be stored and reused for as long as you configure — the default is 24 hours.
+
+**How to set it up:**
+
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages → KV**.
+2. Create a new namespace — call it anything, e.g. `article-cache`. Copy the **Namespace ID**.
+3. Go to **My Profile → API Tokens** → create a token with **Workers KV Storage → Modify** permission. Copy the token.
+4. Copy your **Account ID** from the Workers & Pages overview page.
+5. Add these values to your environment variables:
+   - `CLOUDFLARE_ACCOUNT_ID=your-account-id` (Plain text)
+   - `CLOUDFLARE_KV_NAMESPACE_ID=your-namespace-id` (Plain text)
+   - `CLOUDFLARE_API_TOKEN=your-api-token` (🔒 Secret)
+   - `CLOUDFLARE_KV_ENABLED=true` (Plain text)
+   - (Optional) Set `CLOUDFLARE_KV_TTL` to control how long articles are cached, in seconds. Default is `86400` (1 day) and minimum is `3600` (1 hour).
+
+> **Tip:** You can bypass the cache and fetch the latest version of an article by checking the **"LIVE"** checkbox when submitting a URL. This forces a fresh fetch and updates the cached copy.
+
+---
+
 ## Settings (environment variables)
 
 **Browser-only users:** add these in **Vercel → Project → Settings → Environment Variables**.
@@ -110,23 +155,6 @@ Most of these are **optional**. The app works fine without them.
 | `CLOUDFLARE_KV_TTL` | How long (in seconds) to keep an article in the cache. Default is `86400` (1 day). | Plain text | Only if you enabled KV |
 
 > **Tip:** If you just want to try the app, leave all of these blank. It will still work — articles just won't be cached between restarts.
-
----
-
-## Optional: Speed up repeat visits with caching
-
-Without caching, every time someone opens an article, the app re-fetches it from the original site. That's fine for personal use.
-
-If you want faster repeat loads (or you're sharing the reader with others), you can turn on Cloudflare KV caching. Articles will be stored and reused for as long as you configure — the default is 24 hours.
-
-**How to set it up:**
-
-1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages → KV**.
-2. Create a new namespace — call it anything, e.g. `article-cache`. Copy the **Namespace ID**.
-3. Go to **My Profile → API Tokens** → create a token with **Workers KV Storage → Write** permission. Copy the token.
-4. Copy your **Account ID** from the Workers & Pages overview page.
-5. Add all three values to your environment variables and set `CLOUDFLARE_KV_ENABLED=true`.
-6. (Optional) Set `CLOUDFLARE_KV_TTL` to control how long articles are cached, in seconds. Leave it out to use the default of 86400 (1 day).
 
 ---
 
