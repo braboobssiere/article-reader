@@ -64,12 +64,12 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <div class="px-4 font-sans">
+  <div class="px-2 font-sans">
     <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
       <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
     </nav>
     <main class="my-8">
-      <div class="bg-white rounded-lg shadow p-6" style="background-color: var(--bg-color); color: var(--text-color);">
+      <div class="bg-white rounded-lg shadow px-2 py-4" style="background-color: var(--bg-color); color: var(--text-color);">
         <%~ it.body %>
       </div>
     </main>
