@@ -2,6 +2,11 @@ import { parseHTML } from 'linkedom';
 import { Defuddle } from 'defuddle/node';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
+import { brotliCompress, brotliDecompress } from 'zlib';
+import { promisify } from 'util';
+
+const compress = promisify(brotliCompress);
+const decompress = promisify(brotliDecompress);
 
 export interface ArticleData {
   title: string;
@@ -11,7 +16,8 @@ export interface ArticleData {
   image: string | null;
 }
 
-const memoryCache = new Map<string, { data: ArticleData; expires: number }>();
+// ── In‑memory cache ──────────────────────────────────────────────────────
+const memoryCache = new Map<string, { data: Buffer; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
 
 setInterval(() => {
@@ -21,6 +27,7 @@ setInterval(() => {
   }
 }, MEMORY_TTL_MS).unref();
 
+// ── Cloudflare KV config ────────────────────────────────────────────────
 const CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID || '';
@@ -39,6 +46,18 @@ function kvUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
 }
 
+// ── Compression helpers ──────────────────────────────────────────────────
+async function compressData(data: ArticleData): Promise<Buffer> {
+  const json = JSON.stringify(data);
+  return await compress(json);
+}
+
+async function decompressData(buffer: Buffer): Promise<ArticleData> {
+  const json = await decompress(buffer);
+  return JSON.parse(json.toString('utf-8'));
+}
+
+// ── Cloudflare KV functions ─────────────────────────────────────────────
 async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
   if (!CF_KV_ENABLED) return null;
   try {
@@ -51,10 +70,17 @@ async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
       console.warn(`[Cloudflare KV] GET failed (${res.status}): ${text.slice(0, 200)}`);
       return null;
     }
-    const data = await res.json();
-    return data as ArticleData;
+    const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    try {
+      return await decompressData(buffer);
+    } catch (err) {
+      console.warn(`[Cloudflare KV] Decompression failed for key ${key}, treating as cache miss:`, err);
+      return null;
+    }
   } catch (err) {
-    console.warn('[Cloudflare KV] GET error, falling back to memory:', err);
+    console.warn('[Cloudflare KV] GET error, treating as cache miss:', err);
     return null;
   }
 }
@@ -63,13 +89,14 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
   if (!CF_KV_ENABLED) return;
   try {
     const url = kvUrl(key) + `?expiration_ttl=${CF_KV_TTL}`;
+    const compressed = await compressData(data);
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${CF_API_TOKEN}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/octet-stream',
       },
-      body: JSON.stringify(data),
+      body: compressed,
     });
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`);
@@ -79,13 +106,16 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
   }
 }
 
+// ── Public cache interface ──────────────────────────────────────────────
 export async function getCached(url: string): Promise<ArticleData | null> {
   if (CF_KV_ENABLED) {
     const cfData = await getFromCloudflareKV(url);
     if (cfData) return cfData;
   }
   const entry = memoryCache.get(url);
-  if (entry && entry.expires > Date.now()) return entry.data;
+  if (entry && entry.expires > Date.now()) {
+    return await decompressData(entry.data);
+  }
   memoryCache.delete(url);
   return null;
 }
@@ -96,9 +126,11 @@ export async function setCached(url: string, data: ArticleData): Promise<void> {
       console.warn('[Cloudflare KV] background set error:', err)
     );
   }
-  memoryCache.set(url, { data, expires: Date.now() + MEMORY_TTL_MS });
+  const compressed = await compressData(data);
+  memoryCache.set(url, { data: compressed, expires: Date.now() + MEMORY_TTL_MS });
 }
 
+// ── Article fetching ─────────────────────────────────────────────────────
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
