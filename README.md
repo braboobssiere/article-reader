@@ -143,10 +143,11 @@ If you want faster repeat loads (or you're sharing the reader with others), you 
 
 | Piece | What it is |
 |---|---|
-| Next.js 15 | The web framework that runs everything |
-| @mozilla/readability | Mozilla's article extractor (same one Firefox uses) |
-| sanitize-html | Removes any dangerous code from extracted content |
-| Eta | Lightweight templating engine for rendering HTML pages |
-| ssrf-guard | Blocks requests to internal/private addresses |
-| Cloudflare KV | Optional cloud storage for caching articles |
+| Next.js | The web framework that runs everything |
+| [defuddle](https://github.com/kepano/defuddle) | Article extraction (handles title, author, date, image, and content in one pass) |
+| [sanitize-html](https://github.com/apostrophecms/apostrophe/tree/main/packages/sanitize-html) | Removes any dangerous code from extracted content |
+| [linkedom](https://github.com/WebReflection/linkedom) | Lightweight DOM parser for server‑side extraction |
+| [Eta](https://eta.js.org/) | Lightweight templating engine for rendering HTML pages |
+| [ssrf-guard](https://github.com/jonathanong/ssrf-guard) | Blocks requests to internal/private addresses |
+| [Cloudflare KV](https://developers.cloudflare.com/kv/) | Optional cloud storage for caching articles |
 | Tailwind CSS | Handles the styling |
