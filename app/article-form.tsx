@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import Script from 'next/script';
 
 const KEY = 'linkHistory';
 const HISTORY_LIMIT = 100;
@@ -31,6 +32,16 @@ declare global {
   }
 }
 
+// Client‑side URL validation – only allow http(s)
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export default function ArticleForm({
   turnstileEnabled,
   siteKey,
@@ -43,68 +54,39 @@ export default function ArticleForm({
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [url, setUrl] = useState(initialUrl ?? '');
   const [isVerified, setIsVerified] = useState(!turnstileEnabled);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const renderedRef = useRef(false);
 
+  // Load history on mount
   useEffect(() => {
     setHistory(readHistory());
   }, []);
 
+  // Render Turnstile when the script loads
+  const handleTurnstileLoad = () => {
+    if (!containerRef.current || !window.turnstile || renderedRef.current) return;
+    const widgetId = window.turnstile.render(containerRef.current, {
+      sitekey: siteKey,
+      theme: 'light',
+      callback: (token: string) => {
+        setIsVerified(true);
+        setUrlError(null); // clear any previous error
+      },
+      'error-callback': () => {
+        setIsVerified(false);
+      },
+      'expired-callback': () => {
+        setIsVerified(false);
+      },
+    });
+    widgetIdRef.current = widgetId;
+    renderedRef.current = true;
+  };
+
+  // Cleanup Turnstile on unmount
   useEffect(() => {
-    if (!turnstileEnabled || !siteKey) return;
-
-    const renderWidget = () => {
-      if (!containerRef.current || !window.turnstile) return;
-      // Only render once
-      if (renderedRef.current) return;
-      const widgetId = window.turnstile.render(containerRef.current, {
-        sitekey: siteKey,
-        theme: 'light',
-        callback: (token: string) => {
-          setIsVerified(true);
-        },
-        'error-callback': () => {
-          setIsVerified(false);
-        },
-        'expired-callback': () => {
-          setIsVerified(false);
-        },
-      });
-      widgetIdRef.current = widgetId;
-      renderedRef.current = true;
-    };
-
-    // If Turnstile is already loaded, render immediately
-    if (window.turnstile) {
-      renderWidget();
-    } else {
-      // Otherwise, poll until it's available
-      const checkTurnstile = setInterval(() => {
-        if (window.turnstile) {
-          clearInterval(checkTurnstile);
-          renderWidget();
-        }
-      }, 100);
-
-      // Fallback: wait for script load event
-      const timeout = setTimeout(() => {
-        clearInterval(checkTurnstile);
-        if (!window.turnstile) {
-          const script = document.querySelector('script[src*="turnstile"]');
-          if (script) {
-            script.addEventListener('load', renderWidget, { once: true });
-          }
-        }
-      }, 5000);
-
-      return () => {
-        clearInterval(checkTurnstile);
-        clearTimeout(timeout);
-      };
-    }
-
-    // Cleanup on unmount
     return () => {
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current);
@@ -112,20 +94,32 @@ export default function ArticleForm({
         renderedRef.current = false;
       }
     };
-  }, [turnstileEnabled, siteKey]);
+  }, []);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    // Prevent submission if CAPTCHA not verified
     if (turnstileEnabled && !isVerified) {
       e.preventDefault();
       alert('Please complete the CAPTCHA verification first.');
       return;
     }
+
+    // Validate URL
     if (!url) {
       e.preventDefault();
+      setUrlError('Please enter a URL.');
       return;
     }
+    if (!isValidUrl(url)) {
+      e.preventDefault();
+      setUrlError('Please enter a valid HTTP or HTTPS URL.');
+      return;
+    }
+    setUrlError(null);
+
+    // Update history using current state, avoid re‑reading localStorage
     const entry = { link: url, date: new Date().toISOString() };
-    const next = [entry, ...readHistory().filter(e => e.link !== url)].slice(0, HISTORY_LIMIT);
+    const next = [entry, ...history.filter(e => e.link !== url)].slice(0, HISTORY_LIMIT);
     localStorage.setItem(KEY, JSON.stringify(next));
     setHistory(next);
   }
@@ -135,20 +129,67 @@ export default function ArticleForm({
     setHistory([]);
   }
 
+  // Memoize history list to avoid unnecessary re‑renders
+  const historyItems = useMemo(() => {
+    if (history.length === 0) {
+      return <li className="py-3 text-sm text-gray-500">No history yet.</li>;
+    }
+    return history.map((entry) => (
+      <li key={entry.link + entry.date} className="py-3 flex items-start justify-between gap-4">
+        <button
+          type="button"
+          className="text-left text-blue-600 hover:underline break-all"
+          onClick={() => setUrl(entry.link)}
+          aria-label={`Load ${entry.link}`}
+        >
+          {entry.link}
+        </button>
+        <span className="shrink-0 text-sm text-gray-500">
+          {new Date(entry.date).toLocaleString('en-GB')}
+        </span>
+      </li>
+    ));
+  }, [history]);
+
   return (
     <>
+      {/* Load Turnstile script only when needed */}
+      {turnstileEnabled && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          strategy="afterInteractive"
+          onLoad={handleTurnstileLoad}
+        />
+      )}
+
       <div className="bg-white rounded-lg shadow p-6">
         <form action="/article" method="post" onSubmit={handleSubmit} className="space-y-3">
           <div className="flex flex-row items-center gap-2">
-            <input
-              type="url"
-              name="url"
-              required
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              placeholder="Enter article URL (e.g. https://example.com/news)"
-              className="flex-1 min-w-0 border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
-            />
+            <div className="flex-1 min-w-0">
+              <label htmlFor="article-url" className="sr-only">
+                Article URL
+              </label>
+              <input
+                id="article-url"
+                type="url"
+                name="url"
+                required
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  // Clear error when user types
+                  if (urlError) setUrlError(null);
+                }}
+                placeholder="Enter article URL (e.g. https://example.com/news)"
+                className="w-full border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
+                aria-describedby={urlError ? 'url-error' : undefined}
+              />
+              {urlError && (
+                <p id="url-error" className="mt-1 text-sm text-red-600">
+                  {urlError}
+                </p>
+              )}
+            </div>
             <label className="flex items-center gap-1 whitespace-nowrap text-sm cursor-pointer">
               <input type="checkbox" name="latest" value="1" />
               LIVE
@@ -169,7 +210,17 @@ export default function ArticleForm({
           </div>
 
           {turnstileEnabled && (
-            <div ref={containerRef} className="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
+            <>
+              <div ref={containerRef} /> {/* No data-* attributes to avoid auto-render */}
+              <div aria-live="polite" aria-atomic="true" className="text-sm mt-1">
+                {!isVerified && (
+                  <span className="text-gray-600">Please complete the CAPTCHA verification.</span>
+                )}
+                {isVerified && (
+                  <span className="text-green-600">✓ Verification successful</span>
+                )}
+              </div>
+            </>
           )}
         </form>
       </div>
@@ -186,24 +237,7 @@ export default function ArticleForm({
           </button>
         </div>
         <ul className="max-h-56 overflow-y-auto divide-y divide-gray-200">
-          {history.length === 0 ? (
-            <li className="py-3 text-sm text-gray-500">No history yet.</li>
-          ) : (
-            history.map((entry, i) => (
-              <li key={i} className="py-3 flex items-start justify-between gap-4">
-                <button
-                  type="button"
-                  className="text-left text-blue-600 hover:underline break-all"
-                  onClick={() => setUrl(entry.link)}
-                >
-                  {entry.link}
-                </button>
-                <span className="shrink-0 text-sm text-gray-500">
-                  {new Date(entry.date).toLocaleString('en-GB')}
-                </span>
-              </li>
-            ))
-          )}
+          {historyItems}
         </ul>
       </div>
     </>
