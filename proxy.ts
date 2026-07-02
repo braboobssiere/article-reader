@@ -17,9 +17,6 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const rawUrl = request.url; 
-  const hadTrailingSlash = rawUrl.endsWith('/');
-
   let raw = decodeURIComponent(pathname.slice(1));
   raw = raw.replace(/^(https?:)\//, '$1//');
   if (!/^https?:\/\//i.test(raw)) {
@@ -31,10 +28,6 @@ export function proxy(request: NextRequest) {
     validUrl = new URL(raw).href;
   } catch {
     return NextResponse.redirect(origin, 302);
-  }
-
-  if (hadTrailingSlash && !validUrl.endsWith('/')) {
-    validUrl += '/';
   }
 
   const redirectUrl = new URL(`/?url=${encodeURIComponent(validUrl)}`, origin);
