@@ -10,7 +10,7 @@ function isExcluded(path: string): boolean {
   return false;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, origin } = request.nextUrl;
 
   if (isExcluded(pathname)) {
