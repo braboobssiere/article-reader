@@ -97,10 +97,6 @@ const ARTICLE_TEMPLATE = `
 <div class="article-wrapper" style="max-width: var(--prose-max-width); margin: 0 auto;">
   <h1 class="text-2xl md:text-3xl font-bold text-center my-4"><%= it.article.title %></h1>
 
-  <% if (it.article.image && !it.article.content.includes(it.article.image)) { %>
-    <img src="<%= it.article.image %>" alt="<%= it.article.title %>" class="w-full mx-auto my-5 rounded shadow" />
-  <% } %>
-
   <div class="flex flex-wrap justify-center gap-6 text-sm mt-4 mb-8" style="opacity: 0.8;">
     <div class="flex items-center gap-1">👤 <%= it.article.author %></div>
     <div class="flex items-center gap-1">📅 <%= it.publishedDate %></div>
