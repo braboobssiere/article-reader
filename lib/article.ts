@@ -1,5 +1,5 @@
 import { parseHTML } from 'linkedom';
-import { Defuddle } from 'defuddle/node';
+import { Readability } from '@mozilla/readability';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
 import { brotliCompress, brotliDecompress } from 'zlib';
@@ -13,12 +13,11 @@ export interface ArticleData {
   content: string;
   author: string | null;
   published: string | null;
-  image: string | null;
 }
 
+// ── Cache (in‑memory + Cloudflare KV) ──────────────────────────────
 const memoryCache = new Map<string, { data: Buffer; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
-
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of memoryCache) {
@@ -36,17 +35,13 @@ if (process.env.CLOUDFLARE_KV_TTL && isNaN(CF_KV_TTL_RAW)) {
   console.warn('[config] CLOUDFLARE_KV_TTL is not a valid integer, using default of 86400');
 }
 const CF_KV_TTL = Math.max(3600, !isNaN(CF_KV_TTL_RAW) ? CF_KV_TTL_RAW : 86400);
-if (!isNaN(CF_KV_TTL_RAW) && CF_KV_TTL_RAW < 3600) {
-  console.warn('[config] CLOUDFLARE_KV_TTL is below 3600, clamped to 3600');
-}
 
 function kvUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
 }
 
 async function compressData(data: ArticleData): Promise<Buffer> {
-  const json = JSON.stringify(data);
-  return await compress(json);
+  return await compress(JSON.stringify(data));
 }
 
 async function decompressData(buffer: Buffer): Promise<ArticleData> {
@@ -62,21 +57,15 @@ async function getFromCloudflareKV(key: string): Promise<ArticleData | null> {
     });
     if (!res.ok) {
       if (res.status === 404) return null;
-      const text = await res.text();
-      console.warn(`[Cloudflare KV] GET failed (${res.status}): ${text.slice(0, 200)}`);
       return null;
     }
-    const arrayBuffer = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
+    const buffer = Buffer.from(await res.arrayBuffer());
     try {
       return await decompressData(buffer);
-    } catch (err) {
-      console.warn(`[Cloudflare KV] Decompression failed for key ${key}, treating as cache miss:`, err);
+    } catch {
       return null;
     }
-  } catch (err) {
-    console.warn('[Cloudflare KV] GET error, treating as cache miss:', err);
+  } catch {
     return null;
   }
 }
@@ -85,20 +74,16 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
   if (!CF_KV_ENABLED) return;
   try {
     const url = kvUrl(key) + `?expiration_ttl=${CF_KV_TTL}`;
-    const compressed = await compressData(data);
-    const response = await fetch(url, {
+    await fetch(url, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${CF_API_TOKEN}`,
         'Content-Type': 'application/octet-stream',
       },
-      body: new Uint8Array(compressed),
+      body: new Uint8Array(await compressData(data)),
     });
-    if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`);
-    }
   } catch (err) {
-    console.warn('[Cloudflare KV] PUT error, caching skipped:', err);
+    console.warn('[Cloudflare KV] PUT error:', err);
   }
 }
 
@@ -125,6 +110,8 @@ export async function setCached(url: string, data: ArticleData): Promise<void> {
   memoryCache.set(url, { data: compressed, expires: Date.now() + MEMORY_TTL_MS });
 }
 
+// ── Fetch & parse helpers ──────────────────────────────────────────
+
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -133,59 +120,62 @@ function selectUserAgent(): string {
   return ua ?? DEFAULT_UA;
 }
 
-export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
+async function fetchHtml(url: string, timeoutMs = 8000): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
-
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, {
+    const res = await fetch(url, {
       headers: { 'User-Agent': selectUserAgent() },
       signal: controller.signal,
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const rawHtml = await response.text();
-    const { document } = parseHTML(rawHtml);
-
-    const result = await Promise.race([
-      Defuddle(document, url, { markdown: false, debug: false }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
-      ),
-    ]);
-
-    const title = result.title || 'Untitled';
-    const content = result.content || '';
-
-    if (content.trim().length < 50) {
-      throw new Error('Could not extract article content');
-    }
-
-    const sanitizedContent = sanitizeHtml(content, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
-      allowedAttributes: {
-        ...sanitizeHtml.defaults.allowedAttributes,
-        img: ['src', 'alt', 'width', 'height'],
-      },
-    });
-
-    return {
-      title,
-      content: sanitizedContent,
-      author: result.author || null,
-      published: result.published || null,
-      image: result.image || null,
-    };
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('Request timeout – the website took too long to respond');
+      throw new Error('Request timeout');
     }
-
     throw err;
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+// ── Parse article from HTML using Readability ─────────────────────
+
+async function parseArticleFromHtml(html: string, url: string): Promise<ArticleData> {
+  const { document } = parseHTML(html, { baseURI: url });
+  const reader = new Readability(document);
+  const result = reader.parse();
+  if (!result || !result.content || result.content.trim().length < 50) {
+    throw new Error('Could not extract article content');
+  }
+
+  const sanitizedContent = sanitizeHtml(result.content, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ['src', 'alt', 'width', 'height', 'srcset'],
+    },
+  });
+
+  return {
+    title: result.title || 'Untitled',
+    content: sanitizedContent,
+    author: result.byline || null,
+    published: result.publishedTime || null,
+  };
+}
+
+// ── Main fetch function (direct fetch) ─────────────────────────────
+
+export async function fetchAndParseArticle(url: string): Promise<ArticleData> {
+  try {
+    const html = await fetchHtml(url);
+    const article = await parseArticleFromHtml(html, url);
+    if (article.content.length < 50) throw new Error('Content too short');
+    return article;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Direct fetch failed: ${message}`);
   }
 }

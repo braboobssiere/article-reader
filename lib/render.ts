@@ -57,8 +57,8 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
 </head>
 <body>
   <div class="px-1 font-sans">
-    <nav class="flex flex-col lg:flex-row items-center gap-4 py-4 border-b border-gray-300">
-      <a href="/" class="flex-1 text-lg font-bold">Private Article Reader</a>
+    <nav class="flex justify-center items-center py-4 border-b border-gray-300">
+      <a href="/" class="text-lg font-bold">Private Article Reader</a>
     </nav>
     <main class="my-8">
       <div class="bg-white rounded-lg shadow px-1 py-2" style="background-color: var(--bg-color); color: var(--text-color);">
