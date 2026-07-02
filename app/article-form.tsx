@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const KEY = 'linkHistory';
 const HISTORY_LIMIT = 100;
@@ -15,6 +15,22 @@ function readHistory(): HistoryEntry[] {
   } catch { return []; }
 }
 
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, params: {
+        sitekey: string;
+        theme?: 'light' | 'dark';
+        callback: (token: string) => void;
+        'error-callback'?: () => void;
+        'expired-callback'?: () => void;
+      }) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
 export default function ArticleForm({
   turnstileEnabled,
   siteKey,
@@ -26,34 +42,71 @@ export default function ArticleForm({
 }) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [url, setUrl] = useState(initialUrl ?? '');
-  const [isVerified, setIsVerified] = useState(!turnstileEnabled); // verified if no CAPTCHA needed
+  const [isVerified, setIsVerified] = useState(!turnstileEnabled);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
 
-  // Register the Turnstile callback globally
-  useEffect(() => {
-    if (turnstileEnabled) {
-      // Define the callback that the Turnstile widget will call on success
-      (window as any).turnstileCallback = () => {
-        setIsVerified(true);
-      };
-      // Clean up when component unmounts
-      return () => {
-        delete (window as any).turnstileCallback;
-      };
-    }
-  }, [turnstileEnabled]);
-
-  // Load history from localStorage on mount
   useEffect(() => {
     setHistory(readHistory());
   }, []);
 
+  useEffect(() => {
+    if (!turnstileEnabled || !siteKey) return;
+
+    const renderWidget = () => {
+      if (!containerRef.current || !window.turnstile) return;
+      if (widgetIdRef.current) {
+        window.turnstile.reset(widgetIdRef.current);
+        return;
+      }
+      const widgetId = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        theme: 'light',
+        callback: () => setIsVerified(true),
+        'error-callback': () => setIsVerified(false),
+        'expired-callback': () => setIsVerified(false),
+      });
+      widgetIdRef.current = widgetId;
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      const checkTurnstile = setInterval(() => {
+        if (window.turnstile) {
+          clearInterval(checkTurnstile);
+          renderWidget();
+        }
+      }, 100);
+      const timeout = setTimeout(() => {
+        clearInterval(checkTurnstile);
+        if (!window.turnstile) {
+          const script = document.querySelector('script[src*="turnstile"]');
+          if (script) {
+            script.addEventListener('load', renderWidget, { once: true });
+          }
+        }
+      }, 5000);
+      return () => {
+        clearInterval(checkTurnstile);
+        clearTimeout(timeout);
+      };
+    }
+
+    return () => {
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, [turnstileEnabled, siteKey]);
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (turnstileEnabled && !isVerified) {
-      e.preventDefault(); // stop form submission
+      e.preventDefault();
       alert('Please complete the CAPTCHA verification first.');
       return;
     }
-    // Save history
     if (!url) {
       e.preventDefault();
       return;
@@ -62,7 +115,6 @@ export default function ArticleForm({
     const next = [entry, ...readHistory().filter(e => e.link !== url)].slice(0, HISTORY_LIMIT);
     localStorage.setItem(KEY, JSON.stringify(next));
     setHistory(next);
-    // let the form submit natively
   }
 
   function clearHistory() {
@@ -72,14 +124,8 @@ export default function ArticleForm({
 
   return (
     <>
-      {/* Form section */}
       <div className="bg-white rounded-lg shadow p-6">
-        <form
-          action="/article"
-          method="post"
-          onSubmit={handleSubmit}
-          className="space-y-3"
-        >
+        <form action="/article" method="post" onSubmit={handleSubmit} className="space-y-3">
           <div className="flex flex-row items-center gap-2">
             <input
               type="url"
@@ -109,19 +155,12 @@ export default function ArticleForm({
             </button>
           </div>
 
-          {/* Cloudflare Turnstile – only when enabled */}
           {turnstileEnabled && (
-            <div
-              className="cf-turnstile"
-              data-sitekey={siteKey}
-              data-theme="light"
-              data-callback="turnstileCallback"
-            />
+            <div ref={containerRef} className="cf-turnstile" data-sitekey={siteKey} data-theme="light" />
           )}
         </form>
       </div>
 
-      {/* History section – unchanged */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between gap-4 mb-4">
           <h2 className="text-lg font-bold">History</h2>
