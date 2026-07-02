@@ -45,6 +45,7 @@ export default function ArticleForm({
   const [isVerified, setIsVerified] = useState(!turnstileEnabled);
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const renderedRef = useRef(false);
 
   useEffect(() => {
     setHistory(readHistory());
@@ -55,29 +56,38 @@ export default function ArticleForm({
 
     const renderWidget = () => {
       if (!containerRef.current || !window.turnstile) return;
-      if (widgetIdRef.current) {
-        window.turnstile.reset(widgetIdRef.current);
-        return;
-      }
+      // Only render once
+      if (renderedRef.current) return;
       const widgetId = window.turnstile.render(containerRef.current, {
         sitekey: siteKey,
         theme: 'light',
-        callback: () => setIsVerified(true),
-        'error-callback': () => setIsVerified(false),
-        'expired-callback': () => setIsVerified(false),
+        callback: (token: string) => {
+          setIsVerified(true);
+        },
+        'error-callback': () => {
+          setIsVerified(false);
+        },
+        'expired-callback': () => {
+          setIsVerified(false);
+        },
       });
       widgetIdRef.current = widgetId;
+      renderedRef.current = true;
     };
 
+    // If Turnstile is already loaded, render immediately
     if (window.turnstile) {
       renderWidget();
     } else {
+      // Otherwise, poll until it's available
       const checkTurnstile = setInterval(() => {
         if (window.turnstile) {
           clearInterval(checkTurnstile);
           renderWidget();
         }
       }, 100);
+
+      // Fallback: wait for script load event
       const timeout = setTimeout(() => {
         clearInterval(checkTurnstile);
         if (!window.turnstile) {
@@ -87,16 +97,19 @@ export default function ArticleForm({
           }
         }
       }, 5000);
+
       return () => {
         clearInterval(checkTurnstile);
         clearTimeout(timeout);
       };
     }
 
+    // Cleanup on unmount
     return () => {
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current);
         widgetIdRef.current = null;
+        renderedRef.current = false;
       }
     };
   }, [turnstileEnabled, siteKey]);
