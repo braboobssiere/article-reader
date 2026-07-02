@@ -17,7 +17,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const hadTrailingSlash = pathname.endsWith('/');
+  const fullUrl = new URL(request.url);
+  const rawPath = fullUrl.pathname;
+
+  const hadTrailingSlash = rawPath.endsWith('/');
 
   let raw = decodeURIComponent(pathname.slice(1));
   raw = raw.replace(/^(https?:)\//, '$1//');
