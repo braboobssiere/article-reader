@@ -27,8 +27,8 @@ export default async function HomePage({
       )}
 
       <div className="max-w-5xl mx-auto px-4 font-sans">
-        <nav class="flex justify-center items-center py-4 border-b border-gray-300">
-          <a href="/" class="text-lg font-bold">Private Article Reader</a>
+        <nav className="flex justify-center items-center py-4 border-b border-gray-300">
+          <a href="/" className="text-lg font-bold">Private Article Reader</a>
         </nav>
 
         <main className="my-8 space-y-8">
