@@ -125,7 +125,7 @@ Enabling Cloudflare KV stores a copy for a while, making repeat visits much fast
    - `CLOUDFLARE_KV_NAMESPACE_ID=your-namespace-id` (Plain text)
    - `CLOUDFLARE_API_TOKEN=your-api-token` (🔒 Secret)
    - `CLOUDFLARE_KV_ENABLED=true` (Plain text)
-   - (Optional) Set `CLOUDFLARE_KV_TTL` to control how long articles are cached, in seconds. Default is `86400` (1 day) and minimum is `3600` (1 hour).
+   - (Optional) Set `CLOUDFLARE_KV_TTL` to control how long articles are cached, in seconds.
 
 > **Tip:** LIVE checkbox will bypasses the cache and fetches the latest version of the article.
 
@@ -148,7 +148,7 @@ Most of these are **optional**. The app works fine without them.
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID | Plain text | Only if you enabled KV |
 | `CLOUDFLARE_KV_NAMESPACE_ID` | The ID of your article cache storage bucket | Plain text | Only if you enabled KV |
 | `CLOUDFLARE_API_TOKEN` | Token that lets the app write to the cache | 🔒 Secret | Only if you enabled KV |
-| `CLOUDFLARE_KV_TTL` | How long (in seconds) to keep an article in the cache. Default is `86400` (1 day). | Plain text | Only if you enabled KV |
+| `CLOUDFLARE_KV_TTL` | How long (in seconds) to keep an article in the cache. Default is `604800` (7 day) and minimum is `3600` (1 hour). | Plain text | Only if you enabled KV |
 
 > **Tip:** If you just want to try the app, leave all of these blank. It will still work — articles just won't be cached between restarts.
 
