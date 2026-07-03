@@ -157,7 +157,6 @@ export default function ArticleForm({
 
   return (
     <>
-      {/* Load Turnstile script only when needed */}
       {turnstileEnabled && (
         <Script
           src="https://challenges.cloudflare.com/turnstile/v0/api.js"
@@ -214,19 +213,7 @@ export default function ArticleForm({
             </button>
           </div>
 
-          {turnstileEnabled && (
-            <>
-              <div ref={containerRef} /> {/* No data-* attributes to avoid auto-render */}
-              <div aria-live="polite" aria-atomic="true" className="text-sm mt-1">
-                {!isVerified && (
-                  <span className="text-gray-600">Please complete the CAPTCHA verification.</span>
-                )}
-                {isVerified && (
-                  <span className="text-green-600">✓ Verification successful</span>
-                )}
-              </div>
-            </>
-          )}
+          {turnstileEnabled && <div ref={containerRef} />}
         </form>
       </div>
 
