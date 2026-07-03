@@ -169,7 +169,7 @@ Most of these are **optional**. The app works fine without them.
 | Tech | What it is |
 |---|---|
 | Next.js | The web framework that runs everything |
-| [readability](https://github.com/mozilla/readability) | Article extraction (parses title, author, date, and content) |
+| [defuddle](https://github.com/kepano/defuddle) | Article extraction |
 | [sanitize-html](https://github.com/apostrophecms/apostrophe/tree/main/packages/sanitize-html) | Removes any dangerous code from extracted content |
 | [linkedom](https://github.com/WebReflection/linkedom) | Lightweight DOM parser for server‑side extraction |
 | [Eta](https://eta.js.org/) | Lightweight templating engine for rendering HTML pages |
