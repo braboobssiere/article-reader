@@ -158,7 +158,12 @@ async function fetchHtml(url: string, timeoutMs = 8000): Promise<string> {
 
 async function parseArticleFromHtml(html: string, url: string): Promise<ArticleData> {
   const { document } = parseHTML(html, { baseURI: url });
-  const result = await Defuddle(document, url, { markdown: false, debug: false });
+  const result = await Promise.race([
+      Defuddle(document, url, { markdown: false, debug: false }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
+      ),
+    ]);
   if (!result || !result.content || result.content.trim().length < 50) {
     throw new Error('Could not extract article content');
   }
