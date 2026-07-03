@@ -1,5 +1,5 @@
 import { parseHTML } from 'linkedom';
-import { Readability } from '@mozilla/readability';
+import { Defuddle } from 'defuddle/node';
 import sanitizeHtml from 'sanitize-html';
 import desktopUserAgents from 'top-user-agents/desktop';
 import { brotliCompress, brotliDecompress } from 'zlib';
@@ -158,8 +158,12 @@ async function fetchHtml(url: string, timeoutMs = 8000): Promise<string> {
 
 async function parseArticleFromHtml(html: string, url: string): Promise<ArticleData> {
   const { document } = parseHTML(html, { baseURI: url });
-  const reader = new Readability(document);
-  const result = reader.parse();
+  const result = await Promise.race([
+      Defuddle(document, url, { markdown: false, debug: false }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
+      ),
+    ]);
   if (!result || !result.content || result.content.trim().length < 50) {
     throw new Error('Could not extract article content');
   }
@@ -175,8 +179,8 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
   return {
     title: result.title || 'Untitled',
     content: sanitizedContent,
-    author: result.byline || null,
-    published: result.publishedTime || null,
+    author: result.author || null,
+    published: result.published || null,
   };
 }
 
