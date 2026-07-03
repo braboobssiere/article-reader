@@ -1,21 +1,22 @@
 export function buildContentSecurityPolicy(nonce: string): string {
   const turnstileOrigin = 'https://challenges.cloudflare.com';
-  const vercelAnalyticsOrigins = [
+  const vercelOrigins = [
     'https://va.vercel-scripts.com',
     'https://vitals.vercel-insights.com',
+    'https://vercel.live',
   ];
 
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
     turnstileOrigin,
-    ...vercelAnalyticsOrigins,
+    ...vercelOrigins,
   ].join(' ');
 
   const connectSrc = [
     "'self'",
     turnstileOrigin,
-    ...vercelAnalyticsOrigins,
+    ...vercelOrigins,
   ].join(' ');
 
   return [
