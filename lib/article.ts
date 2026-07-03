@@ -161,7 +161,9 @@ async function fetchHtml(url: string, timeoutMs = 8000): Promise<string> {
 async function parseArticleFromHtml(html: string, url: string): Promise<ArticleData> {
   const { document } = parseHTML(html, { baseURI: url });
   const result = await Promise.race([
-      Defuddle(document, url, { includeReplies: true }),
+      Defuddle(document, url, { 
+        includeReplies: true, 
+      }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Defuddle parse timeout')), 5000)
       ),
