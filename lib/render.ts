@@ -134,14 +134,15 @@ export function renderErrorPage(message: string): string {
   });
 }
 
-export function renderArticlePage(article: ArticleData, sourceUrl: string): string {
-    const publishedDate = article.published
-      ? new Date(article.published).toLocaleDateString('en-GB', {
-          timeZone: 'UTC',
-        })
-      : 'Publishing time not found';
+export function renderArticlePage(article: ArticleData, sourceUrl: string, nonce?: string): string {
+  const publishedDate = article.published
+    ? new Date(article.published).toLocaleDateString('en-GB', {
+        timeZone: 'UTC',
+      })
+    : 'Publishing time not found';
   const author = article.author ?? 'No author found';
   const shareUrl = `/?url=${encodeURIComponent(sourceUrl)}`;
+  const scriptNonce = nonce ? ` nonce="${nonce}"` : '';
 
   const body = eta.renderString(ARTICLE_TEMPLATE, {
     article: { ...article, author },
@@ -153,6 +154,6 @@ export function renderArticlePage(article: ArticleData, sourceUrl: string): stri
   return eta.renderString(LAYOUT_TEMPLATE, {
     title: `${article.title} – Private Article Reader`,
     body,
-    scripts: `<script src="/reader-controls.js"></script>`,
+    scripts: `<script src="/reader-controls.js"${scriptNonce}></script>`,
   });
 }

@@ -23,12 +23,26 @@ setInterval(() => {
   for (const [key, entry] of memoryCache) {
     if (entry.expires <= now) memoryCache.delete(key);
   }
-}, MEMORY_TTL_MS).unref();
+}, MEMORY_TTL_MS); // removed .unref() to ensure cleanup runs even when idle
 
-const CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
+let CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 const CF_NAMESPACE_ID = process.env.CLOUDFLARE_KV_NAMESPACE_ID || '';
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
+
+// Validate Cloudflare KV environment variables early
+if (CF_KV_ENABLED) {
+  const missing: string[] = [];
+  if (!CF_ACCOUNT_ID) missing.push('CLOUDFLARE_ACCOUNT_ID');
+  if (!CF_NAMESPACE_ID) missing.push('CLOUDFLARE_KV_NAMESPACE_ID');
+  if (!CF_API_TOKEN) missing.push('CLOUDFLARE_API_TOKEN');
+  if (missing.length > 0) {
+    console.warn(
+      `[Cloudflare KV] Disabled because missing env vars: ${missing.join(', ')}`
+    );
+    CF_KV_ENABLED = false;
+  }
+}
 
 const CF_KV_TTL_RAW = parseInt(process.env.CLOUDFLARE_KV_TTL ?? '', 10);
 if (process.env.CLOUDFLARE_KV_TTL && isNaN(CF_KV_TTL_RAW)) {

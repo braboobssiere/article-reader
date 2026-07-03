@@ -6,6 +6,7 @@ export async function verifyTurnstile(token: string, ip: string): Promise<boolea
   body.append('secret', secretKey);
   body.append('response', token);
   if (ip) body.append('remoteip', ip);
+  body.append('idempotency_key', crypto.randomUUID());
 
   const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
     method: 'POST',

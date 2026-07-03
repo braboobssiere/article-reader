@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Script from 'next/script';
 
 const KEY = 'linkHistory';
@@ -13,7 +13,9 @@ function readHistory(): HistoryEntry[] {
     const v = localStorage.getItem(KEY);
     const p = v ? JSON.parse(v) : [];
     return Array.isArray(p) ? p : [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 declare global {
@@ -46,10 +48,12 @@ export default function ArticleForm({
   turnstileEnabled,
   siteKey,
   initialUrl,
+  nonce,
 }: {
   turnstileEnabled: boolean;
   siteKey: string;
   initialUrl?: string;
+  nonce?: string;
 }) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [url, setUrl] = useState(initialUrl ?? '');
@@ -158,6 +162,7 @@ export default function ArticleForm({
         <Script
           src="https://challenges.cloudflare.com/turnstile/v0/api.js"
           strategy="afterInteractive"
+          nonce={nonce}
           onLoad={handleTurnstileLoad}
         />
       )}
