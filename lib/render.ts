@@ -34,13 +34,13 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
     .prose a { color: LinkText; text-decoration: underline; }
     .prose a:hover { text-decoration: underline; }
 
-    .reader-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: center; padding: 0.75rem 1rem; background: rgba(255,255,255,0.6); border-radius: 9999px; margin-bottom: 1.5rem; backdrop-filter: blur(4px); box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: background 0.2s; }
-    .reader-toolbar button { background: transparent; border: 1px solid #ccc; border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.9rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; color: inherit; }
+    .reader-toolbar { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; align-items: center; justify-content: center; padding: 0.4rem 0.8rem; background: rgba(255,255,255,0.6); border-radius: 9999px; margin-bottom: 1.5rem; backdrop-filter: blur(4px); box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: background 0.2s; }
+    .reader-toolbar button { background: transparent; border: 1px solid #ccc; border-radius: 9999px; padding: 0.15rem 0.5rem; font-size: 0.8rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; color: inherit; }
     .reader-toolbar button:hover { background: rgba(0,0,0,0.08); }
     .reader-toolbar .active { background: #000; color: #fff; border-color: #000; }
     .reader-toolbar .active:hover { background: #333; }
-    .reader-toolbar .group-label { font-size: 0.8rem; opacity: 0.7; margin-right: 0.2rem; }
-    .reader-toolbar .width-group { display: inline-flex; align-items: center; gap: 0.5rem; }
+    .reader-toolbar .group-label { font-size: 0.7rem; opacity: 0.7; margin-right: 0.2rem; }
+    .reader-toolbar .width-group { display: inline-flex; align-items: center; gap: 0.3rem; }
 
     body.theme-dark .reader-toolbar { background: rgba(0,0,0,0.7); border-color: #444; }
     body.theme-dark .reader-toolbar button { border-color: #555; color: #ddd; }
@@ -52,7 +52,6 @@ const LAYOUT_TEMPLATE = `<!DOCTYPE html>
     body.theme-dark .source-link:hover { background-color: #b45309 !important; }
     body.theme-dark .share-link { background-color: #374151 !important; color: #f9fafb !important; }
     body.theme-dark .share-link:hover { background-color: #4b5563 !important; }
-
   </style>
 </head>
 <body>
