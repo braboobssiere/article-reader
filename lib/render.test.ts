@@ -31,6 +31,21 @@ describe('renderArticlePage', () => {
     assert.ok(html.includes('John Doe'));
     assert.ok(html.includes('29/06/2025')); // date format depends on locale
   });
+
+  it('adds a nonce to the reader controls script when provided', () => {
+    const article: ArticleData = {
+      title: 'Nonce Test',
+      content: '<p>Content</p>',
+      author: null,
+      published: null,
+      image: null,
+    };
+    const html = renderArticlePage(article, 'https://source.com', 'abc123');
+    assert.ok(
+      html.includes('<script src="/reader-controls.js" nonce="abc123"></script>'),
+      'reader controls script should carry the nonce',
+    );
+  });
 });
 
 describe('renderErrorPage', () => {
