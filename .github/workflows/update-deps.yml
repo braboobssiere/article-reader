@@ -41,12 +41,10 @@ jobs:
       - name: Audit dependencies for vulnerabilities
         run: |
           echo "🔍 Running security audit..."
-          npm audit --json > audit-results.json
-          # Parse and display a summary
-          HIGH=$(jq '.vulnerabilities.high' audit-results.json 2>/dev/null || echo 0)
-          CRITICAL=$(jq '.vulnerabilities.critical' audit-results.json 2>/dev/null || echo 0)
+          npm audit --json > audit-results.json || true
+          HIGH=$(jq '.vulnerabilities.high // 0' audit-results.json)
+          CRITICAL=$(jq '.vulnerabilities.critical // 0' audit-results.json)
           echo "Found ${HIGH} high and ${CRITICAL} critical vulnerabilities."
-          # Fail if any high or critical vulnerabilities exist
           if [ "$HIGH" -gt 0 ] || [ "$CRITICAL" -gt 0 ]; then
             echo "❌ Failing build due to high/critical vulnerabilities."
             exit 1
