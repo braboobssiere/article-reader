@@ -58,7 +58,7 @@ export default function ArticleForm({
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [url, setUrl] = useState(initialUrl ?? '');
   const [isVerified, setIsVerified] = useState(!turnstileEnabled);
-  const [urlError, setUrlError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const renderedRef = useRef(false);
@@ -76,7 +76,7 @@ export default function ArticleForm({
       theme: 'light',
       callback: (token: string) => {
         setIsVerified(true);
-        setUrlError(null); // clear any previous error
+        setFormError(null); // clear any previous error
       },
       'error-callback': () => {
         setIsVerified(false);
@@ -104,22 +104,22 @@ export default function ArticleForm({
     // Prevent submission if CAPTCHA not verified
     if (turnstileEnabled && !isVerified) {
       e.preventDefault();
-      alert('Please complete the CAPTCHA verification first.');
+      setFormError('Please complete the CAPTCHA verification first.');
       return;
     }
 
     // Validate URL
     if (!url) {
       e.preventDefault();
-      setUrlError('Please enter a URL.');
+      setFormError('Please enter a URL.');
       return;
     }
     if (!isValidUrl(url)) {
       e.preventDefault();
-      setUrlError('Please enter a valid HTTP or HTTPS URL.');
+      setFormError('Please enter a valid HTTP or HTTPS URL.');
       return;
     }
-    setUrlError(null);
+    setFormError(null);
 
     // Update history using current state, avoid re‑reading localStorage
     const entry = { link: url, date: new Date().toISOString() };
@@ -182,15 +182,15 @@ export default function ArticleForm({
                 onChange={(e) => {
                   setUrl(e.target.value);
                   // Clear error when user types
-                  if (urlError) setUrlError(null);
+                  if (formError) setFormError(null);
                 }}
                 placeholder="Enter article URL (e.g. https://example.com/news)"
                 className="w-full border-2 rounded px-3 py-2 outline-none focus:border-gray-400"
-                aria-describedby={urlError ? 'url-error' : undefined}
+                aria-describedby={formError ? 'form-error' : undefined}
               />
-              {urlError && (
-                <p id="url-error" className="mt-1 text-sm text-red-600">
-                  {urlError}
+              {formError && (
+                <p id="form-error" className="mt-1 text-sm text-red-600">
+                  {formError}
                 </p>
               )}
             </div>

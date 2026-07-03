@@ -18,12 +18,12 @@ export interface ArticleData {
 // ── Cache (in‑memory + Cloudflare KV) ──────────────────────────────
 const memoryCache = new Map<string, { data: Buffer; expires: number }>();
 const MEMORY_TTL_MS = 3_600_000;
-setInterval(() => {
+function cleanupMemoryCache(): void {
   const now = Date.now();
   for (const [key, entry] of memoryCache) {
     if (entry.expires <= now) memoryCache.delete(key);
   }
-}, MEMORY_TTL_MS); // removed .unref() to ensure cleanup runs even when idle
+}
 
 let CF_KV_ENABLED = process.env.CLOUDFLARE_KV_ENABLED === 'true';
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
@@ -102,6 +102,7 @@ async function setToCloudflareKV(key: string, data: ArticleData): Promise<void> 
 }
 
 export async function getCached(url: string): Promise<ArticleData | null> {
+  cleanupMemoryCache();
   if (CF_KV_ENABLED) {
     const cfData = await getFromCloudflareKV(url);
     if (cfData) return cfData;
@@ -115,6 +116,7 @@ export async function getCached(url: string): Promise<ArticleData | null> {
 }
 
 export async function setCached(url: string, data: ArticleData): Promise<void> {
+  cleanupMemoryCache();
   if (CF_KV_ENABLED) {
     await setToCloudflareKV(url, data).catch(err =>
       console.warn('[Cloudflare KV] background set error:', err)
