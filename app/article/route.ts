@@ -76,7 +76,7 @@ async function handleArticle(
   }
   try {
     const article = await fetchAndParseArticle(validUrl);
-    void setCached(validUrl, article);
+    await setCached(validUrl, article);
     return htmlResponse(renderArticlePage(article, validUrl, nonce ?? undefined), 200, nonce ?? undefined);
   } catch (err) {
     console.error('[article]', err);
