@@ -116,7 +116,7 @@ export async function getCached(url: string): Promise<ArticleData | null> {
 
 export async function setCached(url: string, data: ArticleData): Promise<void> {
   if (CF_KV_ENABLED) {
-    setToCloudflareKV(url, data).catch(err =>
+    await setToCloudflareKV(url, data).catch(err =>
       console.warn('[Cloudflare KV] background set error:', err)
     );
   }
