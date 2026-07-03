@@ -40,7 +40,7 @@ You only need a [GitHub](https://github.com) account and a free [Vercel](https:/
 
 1. Go to [vercel.com/new](https://vercel.com/new) and sign in.
 2. Click **Import** next to the forked repo.
-3. Leave all the build settings as-is — Vercel detects everything automatically.
+3. Leave all the build settings as-is — Vercel automatically detects your framework. If it doesn't, select Next.js as the framework preset.
 4. (Optional) Add any environment variables now, or skip and add them later under **Project → Settings → Environment Variables**. See the [Settings table](#settings-environment-variables) below.
 5. Click **Deploy** and wait for the build to finish.
 
