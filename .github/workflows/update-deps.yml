@@ -23,10 +23,39 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      - name: Show current outdated packages
+        run: |
+          echo "📦 Current outdated packages:"
+          npx npm-check-updates --format json || echo "No updates available"
+
       - name: Update dependencies
         run: |
+          echo "🔄 Upgrading dependencies to latest versions..."
           npx npm-check-updates -u
+
+      - name: Install updated dependencies
+        run: |
+          echo "📥 Installing updated packages..."
           npm install
+
+      - name: Audit dependencies for vulnerabilities
+        run: |
+          echo "🔍 Running security audit..."
+          npm audit --json > audit-results.json
+          # Parse and display a summary
+          HIGH=$(jq '.vulnerabilities.high' audit-results.json 2>/dev/null || echo 0)
+          CRITICAL=$(jq '.vulnerabilities.critical' audit-results.json 2>/dev/null || echo 0)
+          echo "Found ${HIGH} high and ${CRITICAL} critical vulnerabilities."
+          # Fail if any high or critical vulnerabilities exist
+          if [ "$HIGH" -gt 0 ] || [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ Failing build due to high/critical vulnerabilities."
+            exit 1
+          fi
+          echo "✅ No high or critical vulnerabilities found."
+
+      - name: Build the project
+        run: |
+          echo "🏗️ Building the project..."
           npm run build
 
       - name: Commit changes
@@ -37,9 +66,10 @@ jobs:
           git add public/tailwind.css package.json package-lock.json tsconfig.json
 
           if git diff --cached --quiet; then
-            echo "No dependency updates"
+            echo "ℹ️ No dependency updates to commit."
             exit 0
           fi
 
           git commit -m "chore: update dependencies"
           git push
+          echo "✅ Changes committed and pushed."
