@@ -46,9 +46,9 @@ if (CF_KV_ENABLED) {
 
 const CF_KV_TTL_RAW = parseInt(process.env.CLOUDFLARE_KV_TTL ?? '', 10);
 if (process.env.CLOUDFLARE_KV_TTL && isNaN(CF_KV_TTL_RAW)) {
-  console.warn('[config] CLOUDFLARE_KV_TTL is not a valid integer, using default of 86400');
+  console.warn('[config] CLOUDFLARE_KV_TTL is not a valid integer, using default of 604800');
 }
-const CF_KV_TTL = Math.max(3600, !isNaN(CF_KV_TTL_RAW) ? CF_KV_TTL_RAW : 86400);
+const CF_KV_TTL = Math.max(3600, !isNaN(CF_KV_TTL_RAW) ? CF_KV_TTL_RAW : 604800);
 
 function kvUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${CF_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
