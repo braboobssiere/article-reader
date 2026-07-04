@@ -28,6 +28,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
+    `media-src https:`,
     "font-src 'self' data:",
     `frame-src ${turnstileOrigin}`,
     "object-src 'none'",
