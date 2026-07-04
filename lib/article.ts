@@ -195,7 +195,7 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
               rel: 'noopener noreferrer',
               class: 'youtube-link',
             },
-            text: `Watch on YouTube (${match[1]})`,
+            text: `Watch on https://youtu.be/${match[1]}`,
           };
         }
         return { tagName, attribs };
