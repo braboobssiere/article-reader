@@ -198,7 +198,7 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
             text: `Watch on YouTube (${match[1]})`,
           };
         }
-        return null;
+        return { tagName, attribs };
       },
     },
   });
