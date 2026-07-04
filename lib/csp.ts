@@ -5,6 +5,12 @@ export function buildContentSecurityPolicy(nonce: string): string {
     'https://vitals.vercel-insights.com',
     'https://vercel.live',
   ];
+  const allowedFrameOrigins = [
+    'https://www.youtube.com',
+    'https://youtube.com',
+    'https://www.youtube-nocookie.com',
+    'https://youtube-nocookie.com',
+  ];
 
   const scriptSrc = [
     "'self'",
@@ -19,6 +25,11 @@ export function buildContentSecurityPolicy(nonce: string): string {
     ...vercelOrigins,
   ].join(' ');
 
+  const frameSrc = [
+    turnstileOrigin,
+    ...allowedFrameOrigins,
+  ].join(' ');
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -29,7 +40,8 @@ export function buildContentSecurityPolicy(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    `frame-src https:`,
+    `frame-src ${frameSrc}`,
+    `media-src https:`,
     "object-src 'none'",
   ].join('; ');
 }
