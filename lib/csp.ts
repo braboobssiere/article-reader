@@ -29,7 +29,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    `frame-src ${turnstileOrigin}`,
+    `frame-src https:`
     "object-src 'none'",
   ].join('; ');
 }
