@@ -174,11 +174,15 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
   // Log the raw Defuddle result (full object) – this is the only parse log
   console.log('[Parser] Raw Defuddle result:', JSON.stringify(result, null, 2));
   const sanitizedContent = sanitizeHtml(result.content, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      'img', 'iframe', 'video', 'source',
+    ]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ['src', 'alt', 'width', 'height', 'srcset'],
       iframe: ['src', 'width', 'height', 'allowfullscreen'],
+      video: ['src', 'controls', 'width', 'height', 'poster'],
+      source: ['src', 'type'],
     },
   });
 
