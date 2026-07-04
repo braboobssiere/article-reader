@@ -171,7 +171,8 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
   if (!result || !result.content || result.content.trim().length < 50) {
     throw new Error('Could not extract article content');
   }
-
+  // Log the raw Defuddle result (full object) – this is the only parse log
+  console.log('[Parser] Raw Defuddle result:', JSON.stringify(result, null, 2));
   const sanitizedContent = sanitizeHtml(result.content, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
     allowedAttributes: {
