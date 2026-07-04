@@ -175,7 +175,7 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
   console.log('[Parser] Raw Defuddle result:', JSON.stringify(result, null, 2));
   const sanitizedContent = sanitizeHtml(result.content, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-      'img', 'iframe', 'video', 'source',
+      'img', 'iframe', 'video', 'source'
     ]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
