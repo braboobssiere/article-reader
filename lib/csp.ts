@@ -30,6 +30,8 @@ export function buildContentSecurityPolicy(nonce: string): string {
     "img-src 'self' data: https:",
     `media-src https:`,
     "font-src 'self' data:",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
     `frame-src ${turnstileOrigin}`,
     "object-src 'none'",
   ].join('; ');
