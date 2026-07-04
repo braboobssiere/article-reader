@@ -173,10 +173,33 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
   }
 
   const sanitizedContent = sanitizeHtml(result.content, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      'img', 'video', 'source'
+    ]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ['src', 'alt', 'width', 'height', 'srcset'],
+      video: ['src', 'controls', 'width', 'height', 'poster'],
+      source: ['src', 'type'],
+    },
+    transformTags: {
+      iframe: function(tagName, attribs) {
+        const src = attribs.src || '';
+        const match = src.match(/(?:www\.)?(?:youtube\.com|youtube-nocookie\.com)\/embed\/([a-zA-Z0-9_-]{11})/);
+        if (match && match[1]) {
+          return {
+            tagName: 'a',
+            attribs: {
+              href: `https://www.youtube.com/watch?v=${match[1]}`,
+              target: '_blank',
+              rel: 'noopener noreferrer',
+              class: 'youtube-link',
+            },
+            text: `Watch on YouTube (${match[1]})`,
+          };
+        }
+        return null;
+      },
     },
   });
 
