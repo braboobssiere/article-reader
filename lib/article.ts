@@ -187,6 +187,16 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
       video: ['src', 'controls', 'width', 'height', 'poster'],
       source: ['src', 'type'],
     },
+    transformTags: {
+    iframe: function(tagName, attribs) {
+      // Set a default sandbox policy
+      attribs.sandbox = 'allow-scripts allow-same-origin';
+      return {
+        tagName: tagName,
+        attribs: attribs,
+      };
+    },
+  },
   });
 
   return {
