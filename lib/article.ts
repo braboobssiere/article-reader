@@ -178,6 +178,7 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ['src', 'alt', 'width', 'height', 'srcset'],
+      iframe: ['src', 'width', 'height', 'allowfullscreen'],
     },
   });
 
