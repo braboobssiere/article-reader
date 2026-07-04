@@ -189,7 +189,8 @@ async function parseArticleFromHtml(html: string, url: string): Promise<ArticleD
     transformTags: {
     iframe: function(tagName, attribs) {
       // Set a default sandbox policy
-      attribs.sandbox = 'allow-scripts allow-same-origin';
+      attribs.sandbox = 'allow-scripts';
+      attribs.referrerpolicy = 'no-referrer';
       return {
         tagName: tagName,
         attribs: attribs,
