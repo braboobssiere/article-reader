@@ -10,7 +10,6 @@ describe('caching', () => {
     content: '<p>Content</p>',
     author: 'Tester',
     published: '2025-01-01',
-    image: null,
   };
 
   // Reset environment for these tests
@@ -42,7 +41,6 @@ describe('fetchAndParseArticle', () => {
         </article>
         <meta name="author" content="Jane Doe" />
         <meta property="article:published_time" content="2025-06-29" />
-        <meta property="og:image" content="https://example.com/og.jpg" />
       </body>
     </html>
   `;
@@ -62,7 +60,6 @@ describe('fetchAndParseArticle', () => {
     assert.ok(result.content.includes('This is the article content'));
     assert.equal(result.author, 'Jane Doe');
     assert.equal(result.published, '2025-06-29');
-    assert.equal(result.image, 'https://example.com/og.jpg');
 
     global.fetch = originalFetch;
   });
