@@ -10,7 +10,6 @@ describe('renderArticlePage', () => {
       content: '<p>Hello</p><script>alert("xss")</script><img src="x" />',
       author: 'Author',
       published: '2025-01-01',
-      image: null,
     };
     const html = renderArticlePage(article, 'https://example.com');
     assert.ok(!html.includes('<script>'), 'Script tag should be removed');
@@ -24,7 +23,6 @@ describe('renderArticlePage', () => {
       content: '<p>Content</p>',
       author: 'John Doe',
       published: '2025-06-29',
-      image: null,
     };
     const html = renderArticlePage(article, 'https://source.com');
     assert.ok(html.includes('My Article'));
@@ -38,7 +36,6 @@ describe('renderArticlePage', () => {
       content: '<p>Content</p>',
       author: null,
       published: null,
-      image: null,
     };
     const html = renderArticlePage(article, 'https://source.com', 'abc123');
     assert.ok(
