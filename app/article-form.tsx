@@ -34,7 +34,6 @@ declare global {
   }
 }
 
-// Client‑side URL validation – only allow http(s)
 function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -59,16 +58,15 @@ export default function ArticleForm({
   const [url, setUrl] = useState(initialUrl ?? '');
   const [isVerified, setIsVerified] = useState(!turnstileEnabled);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const renderedRef = useRef(false);
 
-  // Load history on mount
   useEffect(() => {
     setHistory(readHistory());
   }, []);
 
-  // Render Turnstile when the script loads
   const handleTurnstileLoad = () => {
     if (!containerRef.current || !window.turnstile || renderedRef.current) return;
     const widgetId = window.turnstile.render(containerRef.current, {
@@ -76,7 +74,7 @@ export default function ArticleForm({
       theme: 'light',
       callback: (token: string) => {
         setIsVerified(true);
-        setFormError(null); // clear any previous error
+        setFormError(null);
       },
       'error-callback': () => {
         setIsVerified(false);
@@ -89,7 +87,6 @@ export default function ArticleForm({
     renderedRef.current = true;
   };
 
-  // Cleanup Turnstile on unmount
   useEffect(() => {
     return () => {
       if (widgetIdRef.current && window.turnstile) {
@@ -101,14 +98,11 @@ export default function ArticleForm({
   }, []);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    // Prevent submission if CAPTCHA not verified
     if (turnstileEnabled && !isVerified) {
       e.preventDefault();
       setFormError('Please complete the CAPTCHA verification first.');
       return;
     }
-
-    // Validate URL
     if (!url) {
       e.preventDefault();
       setFormError('Please enter a URL.');
@@ -121,7 +115,6 @@ export default function ArticleForm({
     }
     setFormError(null);
 
-    // Update history using current state, avoid re‑reading localStorage
     const entry = { link: url, date: new Date().toISOString() };
     const next = [entry, ...history.filter(e => e.link !== url)].slice(0, HISTORY_LIMIT);
     localStorage.setItem(KEY, JSON.stringify(next));
@@ -133,22 +126,24 @@ export default function ArticleForm({
     setHistory([]);
   }
 
-  // Memoize history list to avoid unnecessary re‑renders
   const historyItems = useMemo(() => {
     if (history.length === 0) {
       return <li className="py-3 text-sm text-gray-500">No history yet.</li>;
     }
     return history.map((entry) => (
-      <li key={entry.link + entry.date} className="py-3 flex items-start justify-between gap-4">
+      <li key={entry.link + entry.date} className="py-3 flex items-start gap-3">
         <button
           type="button"
-          className="text-left text-blue-600 hover:underline break-all"
-          onClick={() => setUrl(entry.link)}
+          className="text-left text-blue-600 hover:underline break-all flex-1 min-w-0"
+          onClick={() => {
+            setUrl(entry.link);
+            setIsHistoryOpen(false);
+          }}
           aria-label={`Load ${entry.link}`}
         >
           {entry.link}
         </button>
-        <span className="shrink-0 text-sm text-gray-500">
+        <span className="shrink-0 text-sm text-gray-500 whitespace-nowrap">
           {new Date(entry.date).toLocaleString('en-GB')}
         </span>
       </li>
@@ -168,11 +163,9 @@ export default function ArticleForm({
 
       <div className="bg-white rounded-lg shadow p-6">
         <form action="/article" method="post" onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex flex-row items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <label htmlFor="article-url" className="sr-only">
-                Article URL
-              </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex-1 min-w-[200px]">
+              <label htmlFor="article-url" className="sr-only">Article URL</label>
               <input
                 id="article-url"
                 type="url"
@@ -181,7 +174,6 @@ export default function ArticleForm({
                 value={url}
                 onChange={(e) => {
                   setUrl(e.target.value);
-                  // Clear error when user types
                   if (formError) setFormError(null);
                 }}
                 placeholder="Enter article URL (e.g. https://example.com/news)"
@@ -189,49 +181,87 @@ export default function ArticleForm({
                 aria-describedby={formError ? 'form-error' : undefined}
               />
               {formError && (
-                <p id="form-error" className="mt-1 text-sm text-red-600">
-                  {formError}
-                </p>
+                <p id="form-error" className="mt-1 text-sm text-red-600">{formError}</p>
               )}
             </div>
-            <label className="flex items-center gap-1 whitespace-nowrap text-sm cursor-pointer">
-              <input type="checkbox" name="latest" value="1" />
-              LIVE
-            </label>
-            <button
-              type="submit"
-              disabled={turnstileEnabled && !isVerified}
-              className={`
-                px-4 py-2 rounded transition whitespace-nowrap text-sm
-                ${turnstileEnabled && !isVerified
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-black text-white hover:bg-gray-800'
-                }
-              `}
-            >
-              Load Article
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              <label className="flex items-center gap-1 whitespace-nowrap text-sm cursor-pointer">
+                <input type="checkbox" name="latest" value="1" />
+                LIVE
+              </label>
+
+              <button
+                type="submit"
+                disabled={turnstileEnabled && !isVerified}
+                className={`
+                  px-4 py-2 rounded transition whitespace-nowrap text-sm
+                  ${turnstileEnabled && !isVerified
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-black text-white hover:bg-gray-800'
+                  }
+                `}
+              >
+                Load Article
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsHistoryOpen(true)}
+                className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm flex items-center gap-1"
+                aria-label="Open history"
+              >
+                📚 History
+              </button>
+            </div>
           </div>
 
           {turnstileEnabled && <div ref={containerRef} />}
         </form>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <h2 className="text-lg font-bold">History</h2>
-          <button
-            type="button"
-            onClick={clearHistory}
-            className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-800"
+      {isHistoryOpen && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end"
+          role="dialog"
+          aria-modal="true"
+          aria-label="History sidebar"
+        >
+          <div
+            className="fixed inset-0 bg-black/30"
+            onClick={() => setIsHistoryOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="relative w-80 max-w-full h-full bg-white shadow-xl transform transition-transform duration-300 ease-in-out"
+            style={{ transform: 'translateX(0)' }}
           >
-            Clear History
-          </button>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold">History</h2>
+              <button
+                type="button"
+                onClick={() => setIsHistoryOpen(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+                aria-label="Close history"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              <button
+                type="button"
+                onClick={clearHistory}
+                className="mb-4 px-4 py-2 text-white bg-red-600 rounded hover:bg-red-800 text-sm"
+              >
+                Clear History
+              </button>
+              <ul className="max-h-[calc(100vh-180px)] overflow-y-auto divide-y divide-gray-200">
+                {historyItems}
+              </ul>
+            </div>
+          </div>
         </div>
-        <ul className="max-h-56 overflow-y-auto divide-y divide-gray-200">
-          {historyItems}
-        </ul>
-      </div>
+      )}
     </>
   );
 }
