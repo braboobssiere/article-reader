@@ -131,10 +131,10 @@ export default function ArticleForm({
       return <li className="py-3 text-sm text-gray-500">No history yet.</li>;
     }
     return history.map((entry) => (
-      <li key={entry.link + entry.date} className="py-3 flex items-start justify-between gap-4">
+      <li key={entry.link + entry.date} className="py-3 flex items-start gap-3">
         <button
           type="button"
-          className="text-left text-blue-600 hover:underline break-all"
+          className="text-left text-blue-600 hover:underline break-all flex-1 min-w-0"
           onClick={() => {
             setUrl(entry.link);
             setIsHistoryOpen(false);
@@ -143,7 +143,7 @@ export default function ArticleForm({
         >
           {entry.link}
         </button>
-        <span className="shrink-0 text-sm text-gray-500">
+        <span className="shrink-0 text-sm text-gray-500 whitespace-nowrap">
           {new Date(entry.date).toLocaleString('en-GB')}
         </span>
       </li>
@@ -163,7 +163,6 @@ export default function ArticleForm({
 
       <div className="bg-white rounded-lg shadow p-6">
         <form action="/article" method="post" onSubmit={handleSubmit} className="space-y-3">
-          {/* --- UPDATED LAYOUT --- */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex-1 min-w-[200px]">
               <label htmlFor="article-url" className="sr-only">Article URL</label>
@@ -216,7 +215,6 @@ export default function ArticleForm({
               </button>
             </div>
           </div>
-          {/* --- END UPDATED LAYOUT --- */}
 
           {turnstileEnabled && <div ref={containerRef} />}
         </form>
