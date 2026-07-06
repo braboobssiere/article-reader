@@ -6,7 +6,11 @@ import Script from 'next/script';
 const KEY = 'linkHistory';
 const HISTORY_LIMIT = 100;
 
-interface HistoryEntry { link: string; date: string; }
+interface HistoryEntry {
+  link: string;
+  date: string;
+  pinned?: boolean;
+}
 
 function readHistory(): HistoryEntry[] {
   try {
@@ -41,6 +45,11 @@ function isValidUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+// Helper to sort by date descending (newest first)
+function sortByDateDesc(a: HistoryEntry, b: HistoryEntry): number {
+  return new Date(b.date).getTime() - new Date(a.date).getTime();
 }
 
 export default function ArticleForm({
@@ -97,12 +106,18 @@ export default function ArticleForm({
     };
   }, []);
 
+  function saveHistory(entries: HistoryEntry[]) {
+    localStorage.setItem(KEY, JSON.stringify(entries));
+    setHistory(entries);
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (turnstileEnabled && !isVerified) {
       e.preventDefault();
       setFormError('Please complete the CAPTCHA verification first.');
       return;
     }
+
     if (!url) {
       e.preventDefault();
       setFormError('Please enter a URL.');
@@ -115,15 +130,46 @@ export default function ArticleForm({
     }
     setFormError(null);
 
-    const entry = { link: url, date: new Date().toISOString() };
-    const next = [entry, ...history.filter(e => e.link !== url)].slice(0, HISTORY_LIMIT);
-    localStorage.setItem(KEY, JSON.stringify(next));
-    setHistory(next);
+    const existing = history.find(e => e.link === url);
+    const newEntry: HistoryEntry = {
+      link: url,
+      date: new Date().toISOString(),
+      pinned: existing?.pinned ?? false,
+    };
+
+    const withoutDuplicate = history.filter(e => e.link !== url);
+    const updated = [newEntry, ...withoutDuplicate];
+
+    const pinned = updated.filter(e => e.pinned);
+    const unpinned = updated.filter(e => !e.pinned);
+
+    // Sort both groups by date descending (newest first)
+    pinned.sort(sortByDateDesc);
+    unpinned.sort(sortByDateDesc);
+
+    const maxUnpinned = Math.max(0, HISTORY_LIMIT - pinned.length);
+    const finalUnpinned = unpinned.slice(0, maxUnpinned);
+
+    saveHistory([...pinned, ...finalUnpinned]);
+  }
+
+  function togglePin(link: string) {
+    const updated = history.map(entry =>
+      entry.link === link ? { ...entry, pinned: !entry.pinned } : entry
+    );
+    const pinned = updated.filter(e => e.pinned);
+    const unpinned = updated.filter(e => !e.pinned);
+
+    pinned.sort(sortByDateDesc);
+    unpinned.sort(sortByDateDesc);
+
+    saveHistory([...pinned, ...unpinned]);
   }
 
   function clearHistory() {
-    localStorage.removeItem(KEY);
-    setHistory([]);
+    // Keep only pinned entries
+    const pinnedOnly = history.filter(e => e.pinned);
+    saveHistory(pinnedOnly);
   }
 
   const historyItems = useMemo(() => {
@@ -146,6 +192,15 @@ export default function ArticleForm({
         <span className="shrink-0 text-sm text-gray-500 whitespace-nowrap">
           {new Date(entry.date).toLocaleString('en-GB')}
         </span>
+        <button
+          type="button"
+          onClick={() => togglePin(entry.link)}
+          className="shrink-0 text-lg leading-none focus:outline-none"
+          aria-label={entry.pinned ? 'Unpin' : 'Pin'}
+          title={entry.pinned ? 'Unpin' : 'Pin'}
+        >
+          {entry.pinned ? '⭐' : '☆'}
+        </button>
       </li>
     ));
   }, [history]);
@@ -253,7 +308,7 @@ export default function ArticleForm({
                 onClick={clearHistory}
                 className="mb-4 px-4 py-2 text-white bg-red-600 rounded hover:bg-red-800 text-sm"
               >
-                Clear History
+                Clear Unpinned
               </button>
               <ul className="max-h-[calc(100vh-180px)] overflow-y-auto divide-y divide-gray-200">
                 {historyItems}
