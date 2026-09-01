@@ -21,10 +21,12 @@ describe('verifyTurnstile', () => {
       const ok = await verifyTurnstile('token-value', '203.0.113.5');
       assert.equal(ok, true);
       assert.ok(receivedBody);
-      assert.equal(receivedBody!.get('secret'), 'secret-key');
-      assert.equal(receivedBody!.get('response'), 'token-value');
-      assert.equal(receivedBody!.get('remoteip'), '203.0.113.5');
-      assert.ok(receivedBody!.get('idempotency_key'));
+      if (receivedBody) {
+        assert.equal(receivedBody.get('secret'), 'secret-key');
+        assert.equal(receivedBody.get('response'), 'token-value');
+        assert.equal(receivedBody.get('remoteip'), '203.0.113.5');
+        assert.ok(receivedBody.get('idempotency_key'));
+      }
     } finally {
       global.fetch = originalFetch;
     }
