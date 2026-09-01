@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { validateUrl } from './ssrf.ts';
+import { validateUrl } from './ssrf';
 
 describe('validateUrl', () => {
   it('accepts a normal public URL', () => {
