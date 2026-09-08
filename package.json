@@ -18,16 +18,16 @@
     "react-dom": "^19.2.8",
     "sanitize-html": "^2.17.7",
     "eta": "^4.6.0",
-    "top-user-agents": "^2.1.133",
+    "top-user-agents": "^2.1.134",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "ssrf-guard": "^1.0.0"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
-    "@types/node": "^26.4.0",
+    "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react-dom": "^19.2.7",
     "@types/sanitize-html": "^2.16.1",
     "typescript": "^7.0.2"
   }
