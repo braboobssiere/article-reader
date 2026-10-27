@@ -10,15 +10,15 @@
     "test": "node --experimental-strip-types --test lib/*.test.ts"
   },
   "dependencies": {
-    "next": "^16.4.2",
-    "linkedom": "^0.18.13",
+    "next": "^16.4.3",
+    "linkedom": "^0.18.14",
     "zod": "^4.6.7",
-    "defuddle": "^0.19.5",
+    "defuddle": "^0.19.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sanitize-html": "^2.18.1",
     "eta": "^4.6.0",
-    "top-user-agents": "^2.1.142",
+    "top-user-agents": "^2.1.143",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "ssrf-guard": "^1.0.0"
